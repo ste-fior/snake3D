@@ -26,9 +26,8 @@
 			var xSpeed = 0.1
 			var zSpeed = 0.1
 			
-			var appleRadius = 0.5
-			var appleXseg = 32
-			var appleYseg = 32
+			var appleRadius = 0.2
+			var appleTube = 0.25 // >appleRadius
 			
 			var scene = new THREE.Scene()
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
@@ -72,7 +71,7 @@
 			var chin = new THREE.Mesh( geometry, skin )
 			chin.rotation.z = -PI/2
 			chin.position.y = segRad
-			scene.add(chin)
+			ground.add(chin)
 			
 			// centre of Head motion
 			var pivotHead = new THREE.Object3D()
@@ -115,15 +114,17 @@
 			tail.rotation.x = PI
 			body1.add( tail )
 			
-			//apple
-			var geometry = new THREE.SphereGeometry( appleRadius, appleXseg, appleYseg )
-			var material = new THREE.MeshBasicMaterial( {color: 0xffff00} )
-			var sphere = new THREE.Mesh( geometry, material )
-			sphere.position.z = 0
-			sphere.position.y = 1
-			scene.add( sphere )
+			// Apple
+			var geometry = new THREE.TorusGeometry( appleRadius, appleTube, 32, 96 )
+			var material = new THREE.MeshBasicMaterial( {color: 0xc05000} )
+			var apple = new THREE.Mesh( geometry, material )
+			apple.position.y = appleTube + groundY/2
+			apple.rotation.x = PI/2
+			ground.add( apple )
 
-			camera.position.set(0,6,7)
+			// Camera
+			camera.position.set(0,5,7) // prospection
+			camera.position.set(0,7,0) // up
 			camera.lookAt( 0, 0, 0 )
 			
 			
@@ -185,6 +186,7 @@
 				//chin.rotation.y += 0.01
 				
 				pivotHead.rotation.z = PI/6*Math.sin(t)+2*PI/3
+				//apple.position.y = Math.sin(t/2)+0.5+appleTube
 
 				renderer.render( scene, camera )
 				t += 0.1
