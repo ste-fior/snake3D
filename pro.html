@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>SNAKE</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="js/pro.js"></script>
+		<script>
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+			
+			// materials
+			var grass = new THREE.MeshBasicMaterial({color:0x507500})
+			var black = new THREE.MeshBasicMaterial({color:0x000000})
+			
+			// ground
+			var ground = new THREE.Mesh(new THREE.BoxGeometry(10,0.5,10), grass);
+			ground.position.y = -0.25;
+			var geometryX = new THREE.Geometry();
+			var geometryZ = new THREE.Geometry();
+			for (var i=-5; i<=5; i++) {
+				if (i%2) {
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, -5) );
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, 5) );
+					geometryZ.vertices.push(new THREE.Vector3( -5, 0.26, i) );
+					geometryZ.vertices.push(new THREE.Vector3( 5, 0.26, i) );
+				} else {
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, 5) );
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, -5) );
+					geometryZ.vertices.push(new THREE.Vector3( 5, 0.26, i) );
+					geometryZ.vertices.push(new THREE.Vector3( -5, 0.26, i) );
+				}
+			}
+			var lineX = new THREE.Line( geometryX, black );
+			var lineZ = new THREE.Line( geometryZ, black );
+			ground.add(lineX);
+			ground.add(lineZ);
+			scene.add(ground);
+
+			var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+			var material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+			var cube = new THREE.Mesh( geometry, material );
+			scene.add( cube );
+
+			camera.position.set(0,6,7);
+			camera.lookAt( 0, 0, 0 );
+
+			var animate = function () {
+				requestAnimationFrame( animate );
+
+				cube.rotation.x += 0.01;
+				cube.rotation.y += 0.01;
+
+				renderer.render( scene, camera );
+			};
+
+			animate();
+		</script>
+	</body>
+</html>
