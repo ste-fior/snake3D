@@ -4,148 +4,193 @@
 		<meta charset=utf-8>
 		<title>SNAKE</title>
 		<style>
-			body { margin: 0; }
-			canvas { width: 100%; height: 100% }
+			body { margin: 0 }
+			canvas { width: 100% height: 100% }
 		</style>
 	</head>
 	<body>
 		<script src="js/pro.js"></script>
 		
 		<script>
+			var PI = Math.PI
+			var t = 0
 			
 			var groundX = 10
 			var groundY = 0.5
 			var groundZ = 10
 			
-			var cubeX = 1
-			var cubeY = 1
-			var cubeZ = 1
+			var segLen = 1
+			var segRad = 0.5
+			var muzzleRad= 0.2
 			
-			
-			var xSpeed = 0.1;
-			var zSpeed = 0.1;
+			var xSpeed = 0.1
+			var zSpeed = 0.1
 			
 			var appleRadius = 0.5
 			var appleXseg = 32
 			var appleYseg = 32
 			
-			var scene = new THREE.Scene();
-			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+			var scene = new THREE.Scene()
+			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
 
-			var renderer = new THREE.WebGLRenderer();
-			renderer.setSize( window.innerWidth, window.innerHeight );
-			document.body.appendChild( renderer.domElement );
+			var renderer = new THREE.WebGLRenderer()
+			renderer.setSize( window.innerWidth, window.innerHeight )
+			document.body.appendChild( renderer.domElement )
 			
 			// materials
 			var grass = new THREE.MeshBasicMaterial({color:0x507500})
 			var black = new THREE.MeshBasicMaterial({color:0x000000})
+			var skin = new THREE.MeshBasicMaterial({color:0x00f000})
+			var mouth = new THREE.MeshBasicMaterial({color:0xa00000})
 			
 			// ground
-			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), grass);
-			ground.position.y = -0.25;
-			var geometryX = new THREE.Geometry();
-			var geometryZ = new THREE.Geometry();
+			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), grass)
+			ground.position.y = -0.25
+			var geometryX = new THREE.Geometry()
+			var geometryZ = new THREE.Geometry()
 			for (var i=-5; i<=5; i++) {
 				if (i%2) {
-					geometryX.vertices.push(new THREE.Vector3( i, 0.26, -5) );
-					geometryX.vertices.push(new THREE.Vector3( i, 0.26, 5) );
-					geometryZ.vertices.push(new THREE.Vector3( -5, 0.26, i) );
-					geometryZ.vertices.push(new THREE.Vector3( 5, 0.26, i) );
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, -5) )
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, 5) )
+					geometryZ.vertices.push(new THREE.Vector3( -5, 0.26, i) )
+					geometryZ.vertices.push(new THREE.Vector3( 5, 0.26, i) )
 				} else {
-					geometryX.vertices.push(new THREE.Vector3( i, 0.26, 5) );
-					geometryX.vertices.push(new THREE.Vector3( i, 0.26, -5) );
-					geometryZ.vertices.push(new THREE.Vector3( 5, 0.26, i) );
-					geometryZ.vertices.push(new THREE.Vector3( -5, 0.26, i) );
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, 5) )
+					geometryX.vertices.push(new THREE.Vector3( i, 0.26, -5) )
+					geometryZ.vertices.push(new THREE.Vector3( 5, 0.26, i) )
+					geometryZ.vertices.push(new THREE.Vector3( -5, 0.26, i) )
 				}
 			}
-			var lineX = new THREE.Line( geometryX, black );
-			var lineZ = new THREE.Line( geometryZ, black );
-			ground.add(lineX);
-			ground.add(lineZ);
-			scene.add(ground);
+			var lineX = new THREE.Line( geometryX, black )
+			var lineZ = new THREE.Line( geometryZ, black )
+			ground.add(lineX) // add as child
+			ground.add(lineZ) // add as child
+			scene.add(ground)
 			
-			//snake
-			var geometry = new THREE.BoxGeometry( cubeX, cubeY, cubeZ );
-			var material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
-			var cube = new THREE.Mesh( geometry, material );
-			cube.position.z = 4
-			cube.position.y = 1
-			scene.add( cube );
+			// Chin
+			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, 0, PI)
+			var chin = new THREE.Mesh( geometry, skin )
+			chin.rotation.z = -PI/2
+			chin.position.y = segRad
+			scene.add(chin)
+			
+			// centre of Head motion
+			var pivotHead = new THREE.Object3D()
+			pivotHead.position.y = -segLen/2
+			chin.add(pivotHead)			
+			
+			// Head
+			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, PI, PI)
+			var head = new THREE.Mesh( geometry, skin )
+			head.position.x = segLen/2
+			head.rotation.z = -PI/2
+			pivotHead.add(head)
+			
+			// Mouth (Chin + Head)
+			var line = new THREE.Shape()
+			line.moveTo( -segRad, -segLen/2 )
+			line.lineTo( -muzzleRad, segLen/2 )
+			line.lineTo( muzzleRad, segLen/2 )
+			line.lineTo( segRad, -segLen/2)
+			line.lineTo( -segRad, -segLen/2 )
+			var extrudeSettings = { depth: -0.01, bevelEnabled: false}
+			var geometry = new THREE.ExtrudeGeometry( line, extrudeSettings )
+			var mouth_head = new THREE.Mesh( geometry, mouth )
+			var mouth_chin = new THREE.Mesh( geometry, mouth )
+			mouth_head.rotation.y = PI/2
+			mouth_chin.rotation.y = PI/2
+			head.add(mouth_head)
+			chin.add(mouth_chin)
+			
+			// Body
+			var geometry = new THREE.CylinderGeometry( segRad, segRad, segLen, 32 )
+			var body1 = new THREE.Mesh( geometry, skin )
+			body1.position.y = -segLen
+			chin.add( body1 )
+			
+			// Tail
+			var geometry = new THREE.ConeGeometry( segRad, segLen, 32 )
+			var tail = new THREE.Mesh( geometry, skin )
+			tail.position.y = -segLen
+			tail.rotation.x = PI
+			body1.add( tail )
 			
 			//apple
-			var geometry = new THREE.SphereGeometry( appleRadius, appleXseg, appleYseg );
-			var material = new THREE.MeshBasicMaterial( {color: 0xffff00} );
-			var sphere = new THREE.Mesh( geometry, material );
+			var geometry = new THREE.SphereGeometry( appleRadius, appleXseg, appleYseg )
+			var material = new THREE.MeshBasicMaterial( {color: 0xffff00} )
+			var sphere = new THREE.Mesh( geometry, material )
 			sphere.position.z = 0
 			sphere.position.y = 1
-			scene.add( sphere );
+			scene.add( sphere )
 
-			camera.position.set(0,6,7);
-			camera.lookAt( 0, 0, 0 );
+			camera.position.set(0,6,7)
+			camera.lookAt( 0, 0, 0 )
 			
 			
 			 
 			var dir = "RIGHT"
-			document.addEventListener("keydown", onDocumentKeyDown, false);
+			document.addEventListener("keydown", onDocumentKeyDown, false)
 			
 			function onDocumentKeyDown(event) {
-				var keyCode = event.which;
+				var keyCode = event.which
 				if ( keyCode == 39 ){ 
 					dir = "RIGHT"
-					cube.position.x += xSpeed
+					chin.rotation.y = 0
 				} else if ( keyCode == 37 ){
 					dir = "LEFT"
-					cube.position.x -= xSpeed
+					chin.rotation.y = PI
 				} else if ( keyCode == 40 ){
 					dir = "DOWN"
-					cube.position.z += xSpeed
+					chin.rotation.y = -PI/2
 				} else if( keyCode == 38 ){
 					dir = "UP"
-					cube.position.z -= xSpeed
+					chin.rotation.y = PI/2
 				}
 				console.log(keyCode)
 			}
 			
 			var checkPos = function (){
-				if (cube.position.x >= groundX/2){
-					cube.position.x = -groundX/2
+				if (chin.position.x >= groundX/2){
+					chin.position.x = -groundX/2
 				}
-				if (cube.position.x < -groundX/2){
-					cube.position.x = groundX/2
+				if (chin.position.x < -groundX/2){
+					chin.position.x = groundX/2
 				}
-				if (cube.position.z >= groundZ/2){
-					cube.position.z = -groundZ/2
+				if (chin.position.z >= groundZ/2){
+					chin.position.z = -groundZ/2
 				}
-				if (cube.position.z < -groundX/2){
-					cube.position.z = groundX/2
+				if (chin.position.z < -groundX/2){
+					chin.position.z = groundX/2
 				}
 			}
 			
-			var changeDir = function(){
+			var move = function(){
 				if ( dir == "RIGHT" ){ //destra
-						cube.position.x += xSpeed
+						chin.position.x += xSpeed
 					} else if ( dir == "LEFT" ){//sinistra
-						cube.position.x -= xSpeed
+						chin.position.x -= xSpeed
 					} else if ( dir == "DOWN" ){ //giu
-						cube.position.z += xSpeed
+						chin.position.z += xSpeed
 					} else if( dir == "UP" ){ //su
-						cube.position.z -= xSpeed
+						chin.position.z -= xSpeed
 					}
 			}
 			
 			
 			
 			var animate = function () {
-				requestAnimationFrame( animate );
-				checkPos();
-				changeDir();
-				//cube.rotation.x += 0.01;
-				//cube.rotation.y += 0.01;
+				requestAnimationFrame( animate )
+				checkPos()
+				move()
+				//chin.rotation.y += 0.01
+				
+				pivotHead.rotation.z = PI/6*Math.sin(t)+2*PI/3
 
-				renderer.render( scene, camera );
-			};
+				renderer.render( scene, camera )
+				t += 0.1
+			}
 
-			animate();
+			animate()
 		</script>
 	</body>
 </html>
