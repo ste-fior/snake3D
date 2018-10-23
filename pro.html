@@ -10,7 +10,25 @@
 	</head>
 	<body>
 		<script src="js/pro.js"></script>
+		
 		<script>
+			
+			var groundX = 10
+			var groundY = 0.5
+			var groundZ = 10
+			
+			var cubeX = 1
+			var cubeY = 1
+			var cubeZ = 1
+			
+			
+			var xSpeed = 0.1;
+			var zSpeed = 0.1;
+			
+			var appleRadius = 0.5
+			var appleXseg = 32
+			var appleYseg = 32
+			
 			var scene = new THREE.Scene();
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 
@@ -23,7 +41,7 @@
 			var black = new THREE.MeshBasicMaterial({color:0x000000})
 			
 			// ground
-			var ground = new THREE.Mesh(new THREE.BoxGeometry(10,0.5,10), grass);
+			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), grass);
 			ground.position.y = -0.25;
 			var geometryX = new THREE.Geometry();
 			var geometryZ = new THREE.Geometry();
@@ -45,20 +63,84 @@
 			ground.add(lineX);
 			ground.add(lineZ);
 			scene.add(ground);
-
-			var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+			
+			//snake
+			var geometry = new THREE.BoxGeometry( cubeX, cubeY, cubeZ );
 			var material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
 			var cube = new THREE.Mesh( geometry, material );
+			cube.position.z = 4
+			cube.position.y = 1
 			scene.add( cube );
+			
+			//apple
+			var geometry = new THREE.SphereGeometry( appleRadius, appleXseg, appleYseg );
+			var material = new THREE.MeshBasicMaterial( {color: 0xffff00} );
+			var sphere = new THREE.Mesh( geometry, material );
+			sphere.position.z = 0
+			sphere.position.y = 1
+			scene.add( sphere );
 
 			camera.position.set(0,6,7);
 			camera.lookAt( 0, 0, 0 );
-
+			
+			
+			 
+			var dir = "RIGHT"
+			document.addEventListener("keydown", onDocumentKeyDown, false);
+			
+			function onDocumentKeyDown(event) {
+				var keyCode = event.which;
+				if ( keyCode == 39 ){ 
+					dir = "RIGHT"
+					cube.position.x += xSpeed
+				} else if ( keyCode == 37 ){
+					dir = "LEFT"
+					cube.position.x -= xSpeed
+				} else if ( keyCode == 40 ){
+					dir = "DOWN"
+					cube.position.z += xSpeed
+				} else if( keyCode == 38 ){
+					dir = "UP"
+					cube.position.z -= xSpeed
+				}
+				console.log(keyCode)
+			}
+			
+			var checkPos = function (){
+				if (cube.position.x >= groundX/2){
+					cube.position.x = -groundX/2
+				}
+				if (cube.position.x < -groundX/2){
+					cube.position.x = groundX/2
+				}
+				if (cube.position.z >= groundZ/2){
+					cube.position.z = -groundZ/2
+				}
+				if (cube.position.z < -groundX/2){
+					cube.position.z = groundX/2
+				}
+			}
+			
+			var changeDir = function(){
+				if ( dir == "RIGHT" ){ //destra
+						cube.position.x += xSpeed
+					} else if ( dir == "LEFT" ){//sinistra
+						cube.position.x -= xSpeed
+					} else if ( dir == "DOWN" ){ //giu
+						cube.position.z += xSpeed
+					} else if( dir == "UP" ){ //su
+						cube.position.z -= xSpeed
+					}
+			}
+			
+			
+			
 			var animate = function () {
 				requestAnimationFrame( animate );
-
-				cube.rotation.x += 0.01;
-				cube.rotation.y += 0.01;
+				checkPos();
+				changeDir();
+				//cube.rotation.x += 0.01;
+				//cube.rotation.y += 0.01;
 
 				renderer.render( scene, camera );
 			};
