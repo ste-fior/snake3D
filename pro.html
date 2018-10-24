@@ -5,7 +5,7 @@
 		<title>SNAKE</title>
 		<style>
 			body { margin: 0 }
-			canvas { width: 100%; height: 100%; background-color: white }
+			canvas { width: 100%; height: 100%}
 		</style>
 	</head>
 	<body>
@@ -29,10 +29,17 @@
 			
 			var lev = 0
 			var listBody = []
-			var dir = RIGHT // current direction
-			var theta = [ 0, 0, 0 ] // Chin+Head, Body, Tail
+			//var dir = RIGHT // Chin+Head direction
+			//var theta = [ 0, 0 ] // Body(s), Tail direction
 			
+			// movement's variables
 			var step = 1
+			var curveStep = 0
+			var curveStepList = []
+			var curveRight = true
+			var dir = 0
+			var prevDir = 0
+			var dirStory = [0,0]
 			
 			var appleRadius = 0.12
 			var appleTube = 0.22 // > appleRadius
@@ -121,7 +128,7 @@
 			chin.add(mouth_chin)
 			
 			// Body
-			var geometryBody = new THREE.CylinderGeometry( segRad-0.1, segRad, segLen, 32 )
+			var geometryBody = new THREE.CylinderGeometry( segRad-0.05, segRad, segLen, 32 )
 			var body = new THREE.Mesh( geometryBody, c_skin )
 			body.position.y = -segLen
 			listBody.push( body )
@@ -138,12 +145,12 @@
 			var levelUP = function () {
 				var body = new THREE.Mesh( geometryBody, c_skin )
 				body.position.y = -segLen
-				listBody.push( body )
-				listBody[ lev ].add( body )
-				listBody[ lev ].remove( tail )
-				theta.push ( theta[lev] )
+				listBody.push( body )	// push in list
+				listBody[ lev ].add( body )	// add new seg as child
+				listBody[ lev ].remove( tail )	// remove tail as child
+				dirStory.push ( dirStory[dirStory.length-1] )	// add new dir
 				lev++;
-				listBody[ lev ].add( tail )
+				listBody[ lev ].add( tail ) // add tail
 			}
 			
 			// Apple
@@ -161,8 +168,8 @@
 			apple.add( petiole )
 
 			// Camera
-			camera.position.set(0,5,7) // prospection
-			//camera.position.set(0,7,0) // up
+			//camera.position.set(0,5,7) // prospection
+			camera.position.set(0,7,0) // up
 			camera.lookAt( 0, 0, 0 )
 
 			// Light
@@ -221,19 +228,19 @@
 					pivotSnake.position.z -= step
 				}
 				
-				theta.unshift( dir )	// add the actual direction
-				theta.pop()				// remove last direction
-				console.log(theta)
+				var diff = dir - prevDir
+				var newDir = 0
+				if ( diff==1 || diff==-3 ) newDir = 1
+				else if ( diff==-1 || diff==3 ) newDir = -1
+				if ( newDir ) dirStory[0] = newDir // the curve needs 2 segs
+				dirStory.unshift(newDir)
+				dirStory.pop()
 				
-				for (var i=0; i<=lev; i++){
-					// theta start with the head
-					// the i-th bodySeg direction correspond to the the (i+1)-th theta
-					var diff = theta[i]-theta[i+1]
-					listBody[i].rotation.x =  diff * PI/2
-					/*if ( diff==1 || diff==-3 ) 	// counterclockwise > left
-						listBody[i].rotation.x +=  -PI/4
-					if ( diff==-1 || diff==3 )	// clockwise > right
-						listBody[i].rotation.x +=  -PI/4*/
+				prevDir = dir
+				console.log(dirStory)
+				
+				for ( var i=0; i<=lev; i++ ) {
+					listBody[i].rotation.x = dirStory[i] * PI/4
 				}
 				
 				// check if the snake reaches the apple -> level UP
