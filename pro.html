@@ -26,8 +26,8 @@
 			var xSpeed = 0.1
 			var zSpeed = 0.1
 			
-			var appleRadius = 0.2
-			var appleTube = 0.25 // >appleRadius
+			var appleRadius = 0.12
+			var appleTube = 0.22 // >appleRadius
 			
 			var sunPos = { x: 5, y: 8, z: 0 }
 			var moonPos = { x: -5, y: 8, z: 0 }
@@ -45,7 +45,8 @@
 			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
 			var c_skin = new THREE.MeshPhongMaterial({color:0x00f000})
 			var c_mouth = new THREE.MeshPhongMaterial({color:0xa00000})
-			var c_apple = new THREE.MeshPhongMaterial( {color: 0xc05000} )
+			var c_apple = new THREE.MeshPhongMaterial( {color: 0xe01000} )
+			var c_brown = new THREE.MeshPhongMaterial( {color: 0x6B4423} )
 			var c_sun = new THREE.MeshPhongMaterial( {color: 0xffefef} )
 			var c_moon = new THREE.MeshPhongMaterial( {color: 0x0050f0} )
 			
@@ -125,8 +126,15 @@
 			var geometry = new THREE.TorusGeometry( appleRadius, appleTube, 32, 96 )
 			var apple = new THREE.Mesh( geometry, c_apple )
 			apple.position.y = appleTube + groundY/2
-			apple.rotation.x = PI/2
+			apple.rotation.x = -PI/2
 			ground.add( apple )
+			
+			// Petiole
+			var geometry = new THREE.ConeGeometry( 0.05, appleTube, 16 )
+			var petiole = new THREE.Mesh( geometry, c_brown )
+			petiole.rotation.x = -PI/4
+			petiole.position.z = appleTube
+			apple.add( petiole )
 
 			// Camera
 			camera.position.set(0,5,7) // prospection
@@ -198,7 +206,8 @@
 				//chin.rotation.y += 0.01
 				
 				pivotHead.rotation.z = PI/6*Math.sin(t)+2*PI/3
-				apple.position.y = Math.sin(t/2)/4+0.30 + appleTube+groundY/2
+				apple.position.y = Math.sin(t/2)/10+0.1 + appleTube+groundY/2
+				apple.rotation.z += 0.05
 				
 				sunPos.y = 8*Math.sin(t/6)
 				sunPos.z = 8*Math.cos(t/6)
