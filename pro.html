@@ -5,7 +5,7 @@
 		<title>SNAKE</title>
 		<style>
 			body { margin: 0 }
-			canvas { width: 100% height: 100% }
+			canvas { width: 100%; height: 100%; background-color: white }
 		</style>
 	</head>
 	<body>
@@ -29,21 +29,28 @@
 			var appleRadius = 0.2
 			var appleTube = 0.25 // >appleRadius
 			
+			var sunPos = { x: 5, y: 8, z: 0 }
+			var moonPos = { x: -5, y: 8, z: 0 }
+			
 			var scene = new THREE.Scene()
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
 
 			var renderer = new THREE.WebGLRenderer()
+			//renderer.setClearColor(0xEEEEEE);
 			renderer.setSize( window.innerWidth, window.innerHeight )
 			document.body.appendChild( renderer.domElement )
 			
 			// materials
-			var grass = new THREE.MeshBasicMaterial({color:0x507500})
-			var black = new THREE.MeshBasicMaterial({color:0x000000})
-			var skin = new THREE.MeshBasicMaterial({color:0x00f000})
-			var mouth = new THREE.MeshBasicMaterial({color:0xa00000})
+			var c_grass = new THREE.MeshPhongMaterial({color:0x507500})
+			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
+			var c_skin = new THREE.MeshPhongMaterial({color:0x00f000})
+			var c_mouth = new THREE.MeshPhongMaterial({color:0xa00000})
+			var c_apple = new THREE.MeshPhongMaterial( {color: 0xc05000} )
+			var c_sun = new THREE.MeshPhongMaterial( {color: 0xffefef} )
+			var c_moon = new THREE.MeshPhongMaterial( {color: 0x0050f0} )
 			
 			// ground
-			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), grass)
+			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), c_grass)
 			ground.position.y = -0.25
 			var geometryX = new THREE.Geometry()
 			var geometryZ = new THREE.Geometry()
@@ -60,15 +67,15 @@
 					geometryZ.vertices.push(new THREE.Vector3( -5, 0.26, i) )
 				}
 			}
-			var lineX = new THREE.Line( geometryX, black )
-			var lineZ = new THREE.Line( geometryZ, black )
+			var lineX = new THREE.Line( geometryX, c_black )
+			var lineZ = new THREE.Line( geometryZ, c_black )
 			ground.add(lineX) // add as child
 			ground.add(lineZ) // add as child
 			scene.add(ground)
 			
 			// Chin
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, 0, PI)
-			var chin = new THREE.Mesh( geometry, skin )
+			var chin = new THREE.Mesh( geometry, c_skin )
 			chin.rotation.z = -PI/2
 			chin.position.y = segRad
 			ground.add(chin)
@@ -80,7 +87,7 @@
 			
 			// Head
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, PI, PI)
-			var head = new THREE.Mesh( geometry, skin )
+			var head = new THREE.Mesh( geometry, c_skin )
 			head.position.x = segLen/2
 			head.rotation.z = -PI/2
 			pivotHead.add(head)
@@ -94,8 +101,8 @@
 			line.lineTo( -segRad, -segLen/2 )
 			var extrudeSettings = { depth: -0.01, bevelEnabled: false}
 			var geometry = new THREE.ExtrudeGeometry( line, extrudeSettings )
-			var mouth_head = new THREE.Mesh( geometry, mouth )
-			var mouth_chin = new THREE.Mesh( geometry, mouth )
+			var mouth_head = new THREE.Mesh( geometry, c_mouth )
+			var mouth_chin = new THREE.Mesh( geometry, c_mouth )
 			mouth_head.rotation.y = PI/2
 			mouth_chin.rotation.y = PI/2
 			head.add(mouth_head)
@@ -103,35 +110,41 @@
 			
 			// Body
 			var geometry = new THREE.CylinderGeometry( segRad, segRad, segLen, 32 )
-			var body1 = new THREE.Mesh( geometry, skin )
+			var body1 = new THREE.Mesh( geometry, c_skin )
 			body1.position.y = -segLen
 			chin.add( body1 )
 			
 			// Tail
 			var geometry = new THREE.ConeGeometry( segRad, segLen, 32 )
-			var tail = new THREE.Mesh( geometry, skin )
+			var tail = new THREE.Mesh( geometry, c_skin )
 			tail.position.y = -segLen
 			tail.rotation.x = PI
 			body1.add( tail )
 			
 			// Apple
 			var geometry = new THREE.TorusGeometry( appleRadius, appleTube, 32, 96 )
-			var material = new THREE.MeshBasicMaterial( {color: 0xc05000} )
-			var apple = new THREE.Mesh( geometry, material )
+			var apple = new THREE.Mesh( geometry, c_apple )
 			apple.position.y = appleTube + groundY/2
 			apple.rotation.x = PI/2
 			ground.add( apple )
 
 			// Camera
 			camera.position.set(0,5,7) // prospection
-			camera.position.set(0,7,0) // up
+			//camera.position.set(0,7,0) // up
 			camera.lookAt( 0, 0, 0 )
-			
-			
+
+			// Light
+			var sunLight = new THREE.DirectionalLight( c_sun, 1.5 );
+			scene.add( sunLight );
+			var moonLight = new THREE.DirectionalLight( c_moon, 0.5 );
+			scene.add( moonLight );
+			var sun = new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun )
+			scene.add( sun )
+			var moon = new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon )
+			scene.add( moon )
 			 
 			var dir = "RIGHT"
 			document.addEventListener("keydown", onDocumentKeyDown, false)
-			
 			function onDocumentKeyDown(event) {
 				var keyCode = event.which
 				if ( keyCode == 39 ){ 
@@ -178,7 +191,6 @@
 			}
 			
 			
-			
 			var animate = function () {
 				requestAnimationFrame( animate )
 				checkPos()
@@ -186,7 +198,16 @@
 				//chin.rotation.y += 0.01
 				
 				pivotHead.rotation.z = PI/6*Math.sin(t)+2*PI/3
-				//apple.position.y = Math.sin(t/2)+0.5+appleTube
+				apple.position.y = Math.sin(t/2)/4+0.30 + appleTube+groundY/2
+				
+				sunPos.y = 8*Math.sin(t/6)
+				sunPos.z = 8*Math.cos(t/6)
+				sun.position.set( sunPos.x, sunPos.y, sunPos.z )
+				sunLight.position.set( sunPos.x, sunPos.y, sunPos.z )//.normalize()
+				//moonPos.y = -8*Math.sin(t/5.5)
+				//moonPos.z = -8*Math.cos(t/5.5)
+				moon.position.set( moonPos.x, moonPos.y, moonPos.z );
+				moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
 
 				renderer.render( scene, camera )
 				t += 0.1
