@@ -19,6 +19,8 @@
 		  <option value="1">Above</option>
 		  <option value="2">Snake</option>
 		</select>
+		<input id="SliderX" type="range" min="-1" max="1" step="0.01" value="0" /> 
+		<input id="SliderY" type="range" min="-1" max="1" step="0.01" value="0" /> 
 		
 		<script>
 			var PI = Math.PI
@@ -26,7 +28,8 @@
 			var UP = 1
 			var LEFT = 2
 			var DOWN = 3
-			var t = 0 // time
+			var t = 0 		// time
+			var lev = 0		// level
 			
 			var groundX = 10
 			var groundY = 0.5
@@ -36,20 +39,18 @@
 			var segRad = 0.4
 			var muzzleRad= 0.2
 			
-			var lev = 0
-			var listBody = []
-			
 			// movement's variables
 			var step = 1
 			var view = 0 // 0:perspective 1:above 2:POV
 			var dir = RIGHT
 			var prevDir = RIGHT
 			var dirList = [0,0,0]
+			var TEST1, TEST2
 			
 			var appleRadius = 0.12
 			var appleTube = 0.22 // > appleRadius
 			
-			var sunPos = { x: 5, y: 8, z: 0 }
+			var sunPos = { x: 3, y: 8, z: 0 }
 			var moonPos = { x: -5, y: 5, z: 2 }
 			
 			var scene = new THREE.Scene()
@@ -61,19 +62,26 @@
 			document.body.appendChild( renderer.domElement )
 			
 			// materials
-			var c_green_grass = new THREE.MeshPhongMaterial({color:0x507500})
+			var c_green_grass = new THREE.MeshLambertMaterial({color:0x507500})
 			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
 			var c_white = new THREE.MeshPhongMaterial({color:0xefefef})
 			var c_green_skin = new THREE.MeshPhongMaterial({color:0x00f000})
 			var c_red_dark = new THREE.MeshPhongMaterial({color:0xa00000})
 			var c_pink = new THREE.MeshPhongMaterial({color:0xc05050})
 			
-			
 			var c_apple = new THREE.MeshPhongMaterial( {color: 0xe01000} )
 			var c_brown = new THREE.MeshPhongMaterial( {color: 0x6B4423} )
 			
 			var c_sun = new THREE.MeshPhongMaterial( {color: 0xffefef} )
 			var c_moon = new THREE.MeshPhongMaterial( {color: 0x0050f0} )
+			
+			// OBJECTS
+			var BODY_PIVOT = new THREE.Object3D()
+			BODY_PIVOT.position.y = -segLen
+			var BODY_CYL = new THREE.Mesh( new THREE.CylinderGeometry( segRad-0.05, segRad, segLen, 32 ), c_green_skin )
+			var BODY_TOR = new THREE.Mesh( new THREE.TorusGeometry( 1/2, segRad, 32, 96, PI/2 ), c_green_skin )
+			var TAIL = new THREE.Mesh( new THREE.ConeGeometry( segRad, segLen, 32 ), c_green_skin )
+			TAIL.rotation.z = PI
 			
 			// ground
 			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), c_green_grass)
@@ -159,39 +167,27 @@
 			eyeL.position.set(-segRad/2,0,-segRad/2)
 			head.add(eyeL)
 			
-			// function to create a new body Seg as child of ?parent
-			var geometryBody = new THREE.CylinderGeometry( segRad-0.05, segRad, segLen, 32 )
-			var newBodySeg = function (parent) {
-				// pivotPoint
-				var pivotBody = new THREE.Object3D()
-				/*var geometry = new THREE.SphereGeometry( 0.2, 32, 32 )
-				var pivotBody = new THREE.Mesh( geometry, c_skin )*/
-				pivotBody.position.y = -segLen
-				listBody.push( pivotBody )
-				parent.add( pivotBody )
-				// bodySeg
-				var bodySeg = new THREE.Mesh( geometryBody, c_green_skin )
-				pivotBody.add( bodySeg )
+			// levelUP
+			var levelUP = function () {
+				// replace tail with the body on actual seg
+				pivotList[ lev ].remove( TAIL )
+				pivotList[ lev ].add( BODY_CYL.clone() )
+				// add the next seg in the lists
+				dirList.push( dirList[lev] )
+				pivotList.push( pivotList[lev].children[0] )
+				// move to the next seg
+				lev++
+				// add as child: next pivot, tail
+				pivotList[ lev ].add( BODY_PIVOT.clone() )
+				pivotList[ lev ].add( TAIL )
 			}
 			
 			// Initial Body
-			newBodySeg( chin )
-			
-			// Tail
-			var geometry = new THREE.ConeGeometry( segRad, segLen, 32 )
-			var tail = new THREE.Mesh( geometry, c_green_skin )
-			tail.position.y = -segLen
-			tail.rotation.z = PI
-			listBody[ 0 ].add( tail )
-			
-			// levelUP : lev++, add BodySeg, (spawn of apple)
-			var levelUP = function () {
-				listBody[ lev ].remove( tail )	// remove tail
-				newBodySeg( listBody[lev] )		// add bodySeg
-				dirList.push( dirList[lev] )	// dirList.length ++
-				lev++;
-				listBody[ lev ].add( tail ) 	// addd tail at the end
-			}
+			var pivotList = [ BODY_PIVOT.clone() ]
+			pivotSnake.add( pivotList[0] )
+			pivotList[0].add( BODY_PIVOT.clone() )
+			pivotList[0].add( TAIL )
+			levelUP() // start with one bodySeg
 			
 			// Apple
 			var geometry = new THREE.TorusGeometry( appleRadius, appleTube, 32, 96 )
@@ -237,6 +233,12 @@
 			document.getElementById("SelectV").onchange = function(event) {
 				view = parseFloat( event.target.value )
 				refreshCamera( pivotSnake.position )
+			}
+			document.getElementById("SliderX").oninput = function(event){
+				TEST1 = parseFloat(event.target.value);
+			}
+			document.getElementById("SliderY").oninput = function(event){
+				TEST2 = parseFloat(event.target.value);
 			}
 
 			// Light
@@ -308,25 +310,22 @@
 				
 				pivotSnake.rotation.y = dirList[0] * PI/2
 				if ( view==2 ) refreshCamera( pivotSnake.position )
-				for ( var i=0; i<=lev; i++ ) {
-					// dirList[0] is the head dir
-					if ( dirList[i+1]==dirList[i] ) {
-						// same direction of parent: straight
-						listBody[i].rotation.x = 0
-						listBody[i].children[0].rotation.x = 0
-						listBody[i].children[0].position.set(0,0,0)
-					} else {
-						// turn!
-						var diff = dirList[i+1] - dirList[i]
-						if ( diff==-1 || diff==3 ) { // turn to RIGHT
-							listBody[i].rotation.x = PI/2
-							listBody[i].children[0].rotation.x = -PI/4
-							listBody[i].children[0].position.set(0,-segLen/5,-segRad/3)
-						} else if ( diff==1 || diff==-3 ) { // turn to LEFT
-							listBody[i].rotation.x = -PI/2
-							listBody[i].children[0].rotation.x = PI/4
-							listBody[i].children[0].position.set(0,-segLen/5,segRad/3)
-						}
+				
+				for ( var i=0; i<lev; i++ ) {
+					var turn = dirList[i+1] - dirList[i]	// dirList[0] is the head dir
+					if ( turn ) { // turn!
+						if (turn == 3) turn = -1 // turn to right [-1,3]
+						if (turn == -3) turn = 1 // turn to left  [1,-3]
+						pivotList[i].rotation.x = -turn*PI/2
+						var tor = BODY_TOR.clone()
+						tor.rotation.set( 0, turn*PI/2, 0 )
+						tor.position.set( 0, -0.5, turn*0.5 )
+						pivotList[i].remove( pivotList[i].children[1] )
+						pivotList[i].add( tor )
+					} else if ( dirList[i+1] != dirList[i+2] ) { // before it was a Tor
+						pivotList[i].rotation.x = 0
+						pivotList[i].remove( pivotList[i].children[1] )
+						pivotList[i].add( BODY_CYL.clone() )
 					}
 				}
 			}
@@ -353,8 +352,8 @@
 				moon.position.set( moonPos.x, moonPos.y, moonPos.z );
 				moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
 
-				/*listBody[0].rotation.x = PI/2
-				listBody[1].rotation.x = -PI/2*/
+				/*pivotList[0].rotation.x = PI/2
+				pivotList[1].rotation.x = -PI/2*/
 				
 				renderer.render( scene, camera )
 				t += 0.1
