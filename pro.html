@@ -19,10 +19,9 @@
 		  <option value="1">Above</option>
 		  <option value="2">Snake</option>
 		</select>
-		<input id="SliderX" type="range" min="-1" max="1" step="0.01" value="0" /> 
-		<input id="SliderY" type="range" min="-1" max="1" step="0.01" value="0" /> 
 		
 		<script>
+			// const
 			var PI = Math.PI
 			var RIGHT = 0
 			var UP = 1
@@ -31,13 +30,15 @@
 			var t = 0 		// time
 			var lev = 0		// level
 			
+			// ground
 			var groundX = 10
-			var groundY = 0.5
+			var groundY = 0.4
 			var groundZ = 10
 			
+			// snake measures
 			var segLen = 1
-			var segRad = 0.4
-			var muzzleRad= 0.2
+			var segRad = (0.9*segLen)/2 //0.4
+			var muzzleRad = segLen/5 	//0.2
 			
 			// movement's variables
 			var step = 1
@@ -45,14 +46,15 @@
 			var dir = RIGHT
 			var prevDir = RIGHT
 			var dirList = [0,0,0]
-			var TEST1, TEST2
 			
-			var appleRadius = 0.12
-			var appleTube = 0.22 // > appleRadius
+			// apple measures
+			var appleRadius = segLen/8.5 	//0.12
+			var appleTube = segLen/4.5		//0.22 (>appleRadius)
 			
 			var sunPos = { x: 3, y: 8, z: 0 }
 			var moonPos = { x: -5, y: 5, z: 2 }
 			
+			var inGame = true
 			var scene = new THREE.Scene()
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
 
@@ -85,9 +87,9 @@
 			
 			// ground
 			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), c_green_grass)
-			ground.position.y = -0.25			
+			ground.position.y = - groundY/2			
 			var gridHelper = new THREE.GridHelper( 10, 10, c_black, c_black);
-			gridHelper.position.y=0.26
+			gridHelper.position.y = groundY/2 + 0.01
 			ground.add( gridHelper );
 			scene.add(ground)
 			
@@ -177,6 +179,7 @@
 				pivotList.push( pivotList[lev].children[0] )
 				// move to the next seg
 				lev++
+				console.log("levelUP >",lev)
 				// add as child: next pivot, tail
 				pivotList[ lev ].add( BODY_PIVOT.clone() )
 				pivotList[ lev ].add( TAIL )
@@ -189,10 +192,44 @@
 			pivotList[0].add( TAIL )
 			levelUP() // start with one bodySeg
 			
+			// return if the obj is in an illegal position
+			var invalidPos = function (obj) {
+				// out of world
+				if (Math.abs(obj.position.x) > groundX/2 ||
+					Math.abs(obj.position.z) > groundZ/2 ) {
+					console.log("out of world")
+					return true
+				}
+				// on snake head (not if obj is head)
+				if (obj != pivotSnake)
+					if (obj.position.x == pivotSnake.position.x &&
+						obj.position.z == pivotSnake.position.z ) {
+					console.log("on snake's head")
+					return true
+				}
+				// on snake body
+				for (var p=0; p<pivotList.length; p++)
+					if (obj.position.x == pivotList[p].position.x &&
+						obj.position.z == pivotList[p].position.z ) {
+						console.log("on snake's body")
+						return true
+					}
+				return false
+			}
+			
+			// Random apple position
+			var randPosApple = function (){
+				do { // find a possible new position
+					apple.position.x = Math.round((Math.random() * (groundX-1)) - groundX/2) + 0.5
+					apple.position.z = Math.round((Math.random() * (groundZ-1)) - groundZ/2) + 0.5
+				} while (invalidPos(apple))
+				console.log("An apple is appeared in",apple.position.x,",",apple.position.z)
+			}
+			
 			// Apple
 			var geometry = new THREE.TorusGeometry( appleRadius, appleTube, 32, 96 )
 			var apple = new THREE.Mesh( geometry, c_apple )
-			apple.position.set(0.5, 0, 0.5)
+			randPosApple()
 			apple.position.y = appleTube + groundY/2
 			apple.rotation.x = -PI/2
 			ground.add( apple )
@@ -234,12 +271,6 @@
 				view = parseFloat( event.target.value )
 				refreshCamera( pivotSnake.position )
 			}
-			document.getElementById("SliderX").oninput = function(event){
-				TEST1 = parseFloat(event.target.value);
-			}
-			document.getElementById("SliderY").oninput = function(event){
-				TEST2 = parseFloat(event.target.value);
-			}
 
 			// Light
 			var sunLight = new THREE.DirectionalLight( c_sun, 1.5 );
@@ -250,7 +281,7 @@
 			scene.add( sun )
 			var moon = new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon )
 			scene.add( moon )
-			 
+			
 			document.addEventListener("keydown", onDocumentKeyDown, false)
 			function onDocumentKeyDown(event) {
 				var keyCode = event.which
@@ -258,13 +289,13 @@
 					if ( keyCode==39 ) dir = (dir+3)%4 // turn RIGHT
 					else if ( keyCode==37) dir = (dir+1)%4 // turn LEFT
 				} else { // absolute movement
-					if (keyCode == 39) { // RIGHT
+					if (keyCode == 39 && dir != LEFT ) { // RIGHT
 						dir = RIGHT
-					} else if (keyCode == 40) { // DOWN
+					} else if (keyCode == 40 && dir != UP ) { // DOWN
 						dir = DOWN
-					} else if (keyCode == 37) { // LEFT
+					} else if (keyCode == 37 && dir != RIGHT ) { // LEFT
 						dir = LEFT
-					} else if (keyCode == 38) { // UP
+					} else if (keyCode == 38 && dir != DOWN ) { // UP
 						dir = UP
 					}
 				}
@@ -278,22 +309,8 @@
 				} else if ( keyCode == 13 ) levelUP() // level up - enter (test)
 			}
 			
-			var checkPos = function (){
-				if (pivotSnake.position.x >= groundX/2){
-					pivotSnake.position.x = -groundX/2+0.5
-				}
-				if (pivotSnake.position.x < -groundX/2){
-					pivotSnake.position.x = groundX/2-0.5
-				}
-				if (pivotSnake.position.z >= groundZ/2){
-					pivotSnake.position.z = -groundZ/2+0.5
-				}
-				if (pivotSnake.position.z < -groundX/2){
-					pivotSnake.position.z = groundX/2-0.5
-				}
-			}
-			
-			var move = function(){
+			var move = function () {
+				// move the snake (pivotSnake)
 				if ( dir == RIGHT ){ 		// RIGHT
 					pivotSnake.position.x += step
 				} else if ( dir == LEFT ){	// LEFT
@@ -303,16 +320,19 @@
 				} else if( dir == UP ){ 	// UP
 					pivotSnake.position.z -= step
 				}
+				if (invalidPos(pivotSnake)) return false
 				
+				// flow the dir along the snake's body
 				dirList.unshift(dir)
 				dirList.pop()
-				//console.log(dirList)
 				
+				// rotate the head (and the camera if in POV)
 				pivotSnake.rotation.y = dirList[0] * PI/2
 				if ( view==2 ) refreshCamera( pivotSnake.position )
 				
+				// rotate the rest of the body
 				for ( var i=0; i<lev; i++ ) {
-					var turn = dirList[i+1] - dirList[i]	// dirList[0] is the head dir
+					var turn = dirList[i+1] - dirList[i] // dirList[0] is the head dir
 					if ( turn ) { // turn!
 						if (turn == 3) turn = -1 // turn to right [-1,3]
 						if (turn == -3) turn = 1 // turn to left  [1,-3]
@@ -328,17 +348,43 @@
 						pivotList[i].add( BODY_CYL.clone() )
 					}
 				}
+				
+				// check if it ate an apple
+				if (apple.position.x == pivotSnake.position.x &&
+					apple.position.z == pivotSnake.position.z) {
+					levelUP()
+					randPosApple()
+				}
+				return true
 			}
 			
-			
-			var animate = function () {
-				requestAnimationFrame( animate )
-				checkPos()
-				//move()
+			var onEat = function (){ /////////////////////////////////////////////////////////// x
+				/*chinX = Math.round(chin.position.x - appleTube)
+				chinZ = Math.round(chin.position.z - appleTube)
+				appleX = apple.position.x
+				appleZ = apple.position.z
+				if (appleX == chinX && appleZ == chinZ){
+					randPosApple()
+				}*/
 				
-				// loop motion
-				pivotHead.rotation.z = PI/6*Math.sin(t)+PI/6
-				tongue.position.y = segLen/2*Math.sin(t)-segLen/2
+				if (apple.position.x == pivotSnake.position.x &&
+					apple.position.z == pivotSnake.position.z) {
+					levelUP()
+					randPosApple()
+				}
+					
+			}
+			
+			var game = function () {
+				requestAnimationFrame( game )
+				if ( Math.round(t*10)%(20-Math.floor(lev/5)) == 0 ) {
+					inGame = move()
+					while (!inGame); //////////////////////////////////////////////////////////////// END?!
+				}
+				
+				// constant motions
+				pivotHead.rotation.z = PI/6*Math.sin(t) + PI/6
+				tongue.position.y = segLen/2*Math.sin(t) - segLen/2
 				apple.position.y = Math.sin(t/2)/10+0.1 + appleTube+groundY/2
 				apple.rotation.z += 0.05
 				
@@ -351,15 +397,12 @@
 				//moonPos.z = -8*Math.cos(t/5.5)
 				moon.position.set( moonPos.x, moonPos.y, moonPos.z );
 				moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
-
-				/*pivotList[0].rotation.x = PI/2
-				pivotList[1].rotation.x = -PI/2*/
 				
 				renderer.render( scene, camera )
 				t += 0.1
 			}
-
-			animate()
+			
+			game()
 		</script>
 	</body>
 </html>
