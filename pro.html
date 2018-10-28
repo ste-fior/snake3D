@@ -29,6 +29,7 @@
 			var DOWN = 3
 			var t = 0 		// time
 			var lev = 0		// level
+            var keyFlag = true
 			
 			// ground
 			var groundX = 10
@@ -46,6 +47,7 @@
 			var dir = RIGHT
 			var prevDir = RIGHT
 			var dirList = [0,0,0]
+            var bodyPos = [[-groundX/2+2.5,0.5],[-groundX/2+1.5,0.5],[-groundX/2+0.5,0.5]]
 			
 			// apple measures
 			var appleRadius = segLen/8.5 	//0.12
@@ -59,12 +61,15 @@
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
 
 			var renderer = new THREE.WebGLRenderer()
-			//renderer.setClearColor(0xEEEEEE);
+			//renderer.setClearColor(0xEEEEEE, 0.3);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMapSoft = true;
+            //renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
 			renderer.setSize( window.innerWidth, window.innerHeight )
 			document.body.appendChild( renderer.domElement )
 			
 			// materials
-			var c_green_grass = new THREE.MeshLambertMaterial({color:0x507500})
+			var c_green_grass = new THREE.MeshPhongMaterial({color:0x507500})
 			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
 			var c_white = new THREE.MeshPhongMaterial({color:0xefefef})
 			var c_green_skin = new THREE.MeshPhongMaterial({color:0x00f000})
@@ -86,16 +91,19 @@
 			TAIL.rotation.z = PI
 			
 			// ground
-			var ground = new THREE.Mesh(new THREE.BoxGeometry(groundX,groundY,groundZ), c_green_grass)
-			ground.position.y = - groundY/2			
+            var geometry = new THREE.BoxGeometry(groundX,groundY,groundZ)
+			var ground = new THREE.Mesh(geometry, c_green_grass)
+			var mud = new THREE.Mesh(geometry, c_brown)
+			mud.position.y = - groundY
 			var gridHelper = new THREE.GridHelper( 10, 10, c_black, c_black);
 			gridHelper.position.y = groundY/2 + 0.01
-			ground.add( gridHelper );
+			ground.add( gridHelper )
+			ground.add( mud )
 			scene.add(ground)
 			
 			// centre of the SNAKE
 			var pivotSnake = new THREE.Object3D()
-			pivotSnake.position.set( 0.5, segLen/2, 0.5 )
+			pivotSnake.position.set( bodyPos[0][0], segLen/2, bodyPos[0][1] )
 			pivotSnake.rotation.z = -PI/2
 			ground.add(pivotSnake)
 			
@@ -174,8 +182,7 @@
 				// replace tail with the body on actual seg
 				pivotList[ lev ].remove( TAIL )
 				pivotList[ lev ].add( BODY_CYL.clone() )
-				// add the next seg in the lists
-				dirList.push( dirList[lev] )
+				// add the next pivot in the list
 				pivotList.push( pivotList[lev].children[0] )
 				// move to the next seg
 				lev++
@@ -200,20 +207,14 @@
 					console.log("out of world")
 					return true
 				}
-				// on snake head (not if obj is head)
-				if (obj != pivotSnake)
-					if (obj.position.x == pivotSnake.position.x &&
-						obj.position.z == pivotSnake.position.z ) {
-					console.log("on snake's head")
-					return true
-				}
-				// on snake body
-				for (var p=0; p<pivotList.length; p++)
-					if (obj.position.x == pivotList[p].position.x &&
-						obj.position.z == pivotList[p].position.z ) {
+				// on snake
+                for (var p=0; p<bodyPos.length-1; p++) {
+                    if ( obj.position.x == bodyPos[p][0] &&
+                         obj.position.z == bodyPos[p][1] ) {
 						console.log("on snake's body")
 						return true
 					}
+                }
 				return false
 			}
 			
@@ -274,39 +275,59 @@
 
 			// Light
 			var sunLight = new THREE.DirectionalLight( c_sun, 1.5 );
-			scene.add( sunLight );
+			scene.add( sunLight )
 			var moonLight = new THREE.DirectionalLight( c_moon, 0.5 );
-			scene.add( moonLight );
+			scene.add( moonLight )
 			var sun = new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun )
 			scene.add( sun )
 			var moon = new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon )
-			scene.add( moon )
+			scene.add( moon )           
+            
+            // SHADOWS 
+            // castShadow = block light
+            sunLight.castShadow = true
+            moonLight.castShadow = true
+            ground.castShadow = true
+            //mud.castShadow = true
+            chin.castShadow = true
+            head.castShadow = true
+            mouth_head.castShadow = true
+            tongue.castShadow = true
+            BODY_CYL.castShadow = true
+            BODY_TOR.castShadow = true
+            TAIL.castShadow = true
+            apple.castShadow = true
+            // receiveShadow = show shadow
+            ground.receiveShadow = true
+            //mud.receiveShadow = true
+            mouth_chin.receiveShadow = true
+            tongue.receiveShadow = true
+            BODY_CYL.receiveShadow = true
+            BODY_TOR.receiveShadow = true
+            TAIL.receiveShadow = true
 			
-			document.addEventListener("keydown", onDocumentKeyDown, false)
+            
+            var nextMoves = []
+			document.addEventListener("keydown", onDocumentKeyDown, true)
 			function onDocumentKeyDown(event) {
-				var keyCode = event.which
-				if ( view==2) { // relative movement (POV)
-					if ( keyCode==39 ) dir = (dir+3)%4 // turn RIGHT
-					else if ( keyCode==37) dir = (dir+1)%4 // turn LEFT
-				} else { // absolute movement
-					if (keyCode == 39 && dir != LEFT ) { // RIGHT
-						dir = RIGHT
-					} else if (keyCode == 40 && dir != UP ) { // DOWN
-						dir = DOWN
-					} else if (keyCode == 37 && dir != RIGHT ) { // LEFT
-						dir = LEFT
-					} else if (keyCode == 38 && dir != DOWN ) { // UP
-						dir = UP
-					}
-				}
-				
-				if ( keyCode>=37 && keyCode<=40 ) move()
-				else console.log( "pressed key:", keyCode )
-				
-				if ( keyCode == 86 ) { // change view - v
-					view = (view+1)%3 
-					refreshCamera( pivotSnake.position )
-				} else if ( keyCode == 13 ) levelUP() // level up - enter (test)
+                var keyCode = event.which
+                if ( keyCode>=37 && keyCode<=40                 // directional key pressed 
+                    && nextMoves.length<4                       // max macro = 3
+                    && nextMoves[nextMoves.length-1]!=keyCode ) // different from the last one
+                    nextMoves.push(keyCode)
+                
+                if ( keyCode == 86 ) { // change view - v
+                    view = (view+1)%3 
+                    refreshCamera( pivotSnake.position )
+                }
+                
+                // TEST: move and levelUP
+                //if ( keyCode>=37 && keyCode<=40 ) move()
+                if ( keyCode == 13 ){
+                    dirList.push(dirList[lev])
+                    bodyPos.push(bodyPos[lev])
+                    levelUP()
+                }
 			}
 			
 			var move = function () {
@@ -322,9 +343,19 @@
 				}
 				if (invalidPos(pivotSnake)) return false
 				
-				// flow the dir along the snake's body
+				// add head elements to the flow lists
 				dirList.unshift(dir)
-				dirList.pop()
+                bodyPos.unshift([pivotSnake.position.x, pivotSnake.position.z])
+                
+                // check if it ate an apple
+				if (apple.position.x == pivotSnake.position.x &&
+					apple.position.z == pivotSnake.position.z) {
+					levelUP()
+					randPosApple()
+				} else {
+                    dirList.pop()
+                    bodyPos.pop()
+                }
 				
 				// rotate the head (and the camera if in POV)
 				pivotSnake.rotation.y = dirList[0] * PI/2
@@ -349,54 +380,59 @@
 					}
 				}
 				
-				// check if it ate an apple
-				if (apple.position.x == pivotSnake.position.x &&
-					apple.position.z == pivotSnake.position.z) {
-					levelUP()
-					randPosApple()
-				}
+				
 				return true
 			}
 			
-			var onEat = function (){ /////////////////////////////////////////////////////////// x
-				/*chinX = Math.round(chin.position.x - appleTube)
-				chinZ = Math.round(chin.position.z - appleTube)
-				appleX = apple.position.x
-				appleZ = apple.position.z
-				if (appleX == chinX && appleZ == chinZ){
-					randPosApple()
-				}*/
-				
-				if (apple.position.x == pivotSnake.position.x &&
-					apple.position.z == pivotSnake.position.z) {
-					levelUP()
-					randPosApple()
-				}
-					
-			}
-			
+            var redPos = 0
 			var game = function () {
 				requestAnimationFrame( game )
-				if ( Math.round(t*10)%(20-Math.floor(lev/5)) == 0 ) {
-					inGame = move()
-					while (!inGame); //////////////////////////////////////////////////////////////// END?!
-				}
-				
-				// constant motions
-				pivotHead.rotation.z = PI/6*Math.sin(t) + PI/6
-				tongue.position.y = segLen/2*Math.sin(t) - segLen/2
+                if (inGame) {
+                    if ( Math.round(t*10)%(20-Math.floor(lev/5)) == 0 ) {
+                        if (nextMoves.length) {
+                            key = nextMoves.shift()
+                            if ( view==2) { // relative movement (POV)
+                                if ( key==39 ) dir = (dir+3)%4 // turn RIGHT
+                                else if ( key==37) dir = (dir+1)%4 // turn LEFT
+                            } else { // absolute movement
+                                if (key == 39 && dir != LEFT ) { // RIGHT
+                                    dir = RIGHT
+                                } else if (key == 40 && dir != UP ) { // DOWN
+                                    dir = DOWN
+                                } else if (key == 37 && dir != RIGHT ) { // LEFT
+                                    dir = LEFT
+                                } else if (key == 38 && dir != DOWN ) { // UP
+                                    dir = UP
+                                }
+                            }
+                        }
+                        inGame = move()
+                    }
+                    
+                    // snake constant motion
+                    pivotHead.rotation.z = PI/6*Math.sin(t) + PI/6
+                    tongue.position.y = segLen/2*Math.sin(t) - segLen/2
+                } else if ( Math.round(t*10)%2 == 0 ) {
+                    pivotList[redPos++%pivotList.length].children[1].material = c_green_skin
+                    pivotList[redPos%pivotList.length].children[1].material = c_red_dark
+                }
+                
+                // apple motion
 				apple.position.y = Math.sin(t/2)/10+0.1 + appleTube+groundY/2
 				apple.rotation.z += 0.05
 				
 				// light
-				sunPos.y = 8*Math.sin(t/6)
-				sunPos.z = 8*Math.cos(t/6)
+				sunPos.y = 8*Math.sin(t/20)
+				sunPos.z = 8*Math.cos(t/20)
 				sun.position.set( sunPos.x, sunPos.y, sunPos.z )
 				sunLight.position.set( sunPos.x, sunPos.y, sunPos.z )//.normalize()
 				//moonPos.y = -8*Math.sin(t/5.5)
 				//moonPos.z = -8*Math.cos(t/5.5)
 				moon.position.set( moonPos.x, moonPos.y, moonPos.z );
 				moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
+                
+                //sunLight.intensity = Math.min( Math.max( sunLight.position.y/2 + 1, 0 ), 1 )
+                //moonLight.intensity = Math.max( sunLight.intensity, 0 )
 				
 				renderer.render( scene, camera )
 				t += 0.1
