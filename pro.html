@@ -243,8 +243,6 @@
 			apple.add( petiole )
 
 			// Camera
-			camera.position.set(0,5,7)
-			camera.lookAt( 0, 0, 0 )
 			var refreshCamera = function (pos) {
 				if ( view==2) { // POV
 					if ( dir==RIGHT) {
@@ -261,13 +259,14 @@
 						camera.lookAt( pos.x, 0, pos.z+2 )
 					}
 				} else if ( view==0 ) { // perspective
-					camera.position.set(0,5,7)
+					camera.position.set( 0, 7, 6 )
 					camera.lookAt( 0, 0, 0 )
 				} else if ( view==1 ) { // above
-					camera.position.set(0,7,0) 
+					camera.position.set( 0, 7, 0 ) 
 					camera.lookAt( 0, 0, 0 )
 				}
 			}
+			refreshCamera(view) // initial setting
 			document.getElementById("SelectV").onchange = function(event) {
 				view = parseFloat( event.target.value )
 				refreshCamera( pivotSnake.position )
