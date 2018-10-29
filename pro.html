@@ -61,13 +61,12 @@
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
 
 			var renderer = new THREE.WebGLRenderer()
-			//renderer.setClearColor(0xEEEEEE, 0.3);
+			//renderer.setClearColor(0x000000, 0.0)
             renderer.shadowMap.enabled = true;
             renderer.shadowMapSoft = true;
-            //renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
 			renderer.setSize( window.innerWidth, window.innerHeight )
 			document.body.appendChild( renderer.domElement )
-			
+            
 			// materials
 			var c_green_grass = new THREE.MeshPhongMaterial({color:0x507500})
 			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
@@ -79,8 +78,8 @@
 			var c_apple = new THREE.MeshPhongMaterial( {color: 0xe01000} )
 			var c_brown = new THREE.MeshPhongMaterial( {color: 0x6B4423} )
 			
-			var c_sun = new THREE.MeshPhongMaterial( {color: 0xffefef} )
-			var c_moon = new THREE.MeshPhongMaterial( {color: 0x0050f0} )
+			var c_sun = new THREE.MeshBasicMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'sun_bright_texture.jpg')} )
+			var c_moon = new THREE.MeshPhongMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'moon_texture.jpg')} )
 			
 			// OBJECTS
 			var BODY_PIVOT = new THREE.Object3D()
@@ -89,6 +88,22 @@
 			var BODY_TOR = new THREE.Mesh( new THREE.TorusGeometry( 1/2, segRad, 32, 96, PI/2 ), c_green_skin )
 			var TAIL = new THREE.Mesh( new THREE.ConeGeometry( segRad, segLen, 32 ), c_green_skin )
 			TAIL.rotation.z = PI
+            
+            // sky
+            var width = groundX/2
+            var sectors = 16
+            //var radius =  width/2 // 4 lati
+            //var radius = (Math.sqrt(2)+1)*width/2 // 8 lati
+            var radius = 2.51*width // 16 lati
+            var geometry = new THREE.BoxGeometry(width,2*groundX,0.5)
+            for (var i=0; i<sectors; i++) {
+                var side = new THREE.Mesh( geometry,
+                    new THREE.MeshBasicMaterial( {color: 0xffffff, 
+                    map: THREE.ImageUtils.loadTexture( 'milky'+(i%4)+'.jpg' )} ) ) //'_texture.jpg'
+                side.position.set( radius*Math.sin(i*PI*2/sectors), 2, -radius*Math.cos(i*PI*2/sectors) )
+                side.rotation.y = -i*PI*2/sectors
+                scene.add( side )
+            }
 			
 			// ground
             var geometry = new THREE.BoxGeometry(groundX,groundY,groundZ)
@@ -197,7 +212,6 @@
 			pivotSnake.add( pivotList[0] )
 			pivotList[0].add( BODY_PIVOT.clone() )
 			pivotList[0].add( TAIL )
-			levelUP() // start with one bodySeg
 			
 			// return if the obj is in an illegal position
 			var invalidPos = function (obj) {
@@ -273,9 +287,10 @@
 			}
 
 			// Light
-			var sunLight = new THREE.DirectionalLight( c_sun, 1.5 );
+            scene.add ( new THREE.AmbientLight( c_white, 0.1 ) )
+			var sunLight = new THREE.DirectionalLight( c_sun, 1.5 )
 			scene.add( sunLight )
-			var moonLight = new THREE.DirectionalLight( c_moon, 0.5 );
+			var moonLight = new THREE.DirectionalLight( c_moon, 0.5 )
 			scene.add( moonLight )
 			var sun = new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun )
 			scene.add( sun )
@@ -304,15 +319,17 @@
             BODY_CYL.receiveShadow = true
             BODY_TOR.receiveShadow = true
             TAIL.receiveShadow = true
-			
             
+			levelUP() // start with one bodySeg
+			
             var nextMoves = []
 			document.addEventListener("keydown", onDocumentKeyDown, true)
 			function onDocumentKeyDown(event) {
                 var keyCode = event.which
                 if ( keyCode>=37 && keyCode<=40                 // directional key pressed 
                     && nextMoves.length<4                       // max macro = 3
-                    && nextMoves[nextMoves.length-1]!=keyCode ) // different from the last one
+                    && (nextMoves[nextMoves.length-1]!=keyCode  // different from the last one
+                        || view == 2) )                         //    but not in POV
                     nextMoves.push(keyCode)
                 
                 if ( keyCode == 86 ) { // change view - v
@@ -322,11 +339,11 @@
                 
                 // TEST: move and levelUP
                 //if ( keyCode>=37 && keyCode<=40 ) move()
-                if ( keyCode == 13 ){
+                /*if ( keyCode == 13 ){
                     dirList.push(dirList[lev])
                     bodyPos.push(bodyPos[lev])
                     levelUP()
-                }
+                }*/
 			}
 			
 			var move = function () {
@@ -421,18 +438,17 @@
 				apple.rotation.z += 0.05
 				
 				// light
-				sunPos.y = 8*Math.sin(t/20)
-				sunPos.z = 8*Math.cos(t/20)
+				sunPos.y = 8*Math.cos(t/20)
+				sunPos.z = -8*Math.sin(t/20)
 				sun.position.set( sunPos.x, sunPos.y, sunPos.z )
 				sunLight.position.set( sunPos.x, sunPos.y, sunPos.z )//.normalize()
-				//moonPos.y = -8*Math.sin(t/5.5)
-				//moonPos.z = -8*Math.cos(t/5.5)
+				
+                moonPos.y = 8*Math.cos(t/22 + PI)
+				moonPos.z = 8*Math.sin(t/22)
 				moon.position.set( moonPos.x, moonPos.y, moonPos.z );
 				moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
-                
-                //sunLight.intensity = Math.min( Math.max( sunLight.position.y/2 + 1, 0 ), 1 )
-                //moonLight.intensity = Math.max( sunLight.intensity, 0 )
 				
+				//renderer.render( backgroundScene, backgroundCamera )
 				renderer.render( scene, camera )
 				t += 0.1
 			}
