@@ -29,9 +29,8 @@
 			var DOWN = 3
 			var t = 0 		// time
 			var lev = 0		// level
-            var keyFlag = true
 			
-			// ground
+			// ground and background
 			var groundX = 10
 			var groundY = 0.4
 			var groundZ = 10
@@ -90,6 +89,7 @@
 			TAIL.rotation.z = PI
             
             // sky
+            var pivotBG = new THREE.Object3D()
             var width = groundX/2
             var sectors = 16
             //var radius =  width/2 // 4 lati
@@ -102,8 +102,9 @@
                     map: THREE.ImageUtils.loadTexture( 'milky'+(i%4)+'.jpg' )} ) ) //'_texture.jpg'
                 side.position.set( radius*Math.sin(i*PI*2/sectors), 2, -radius*Math.cos(i*PI*2/sectors) )
                 side.rotation.y = -i*PI*2/sectors
-                scene.add( side )
+                pivotBG.add( side )
             }
+            scene.add( pivotBG )
 			
 			// ground
             var geometry = new THREE.BoxGeometry(groundX,groundY,groundZ)
@@ -436,6 +437,9 @@
                 // apple motion
 				apple.position.y = Math.sin(t/2)/10+0.1 + appleTube+groundY/2
 				apple.rotation.z += 0.05
+                
+                // background rotation
+                pivotBG.rotation.y += 0.0001
 				
 				// light
 				sunPos.y = 8*Math.cos(t/20)
