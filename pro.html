@@ -29,6 +29,7 @@
 			var DOWN = 3
 			var t = 0 		// time
 			var lev = 0		// level
+            var t_step = 20 // time between 2 steps
 			
 			// ground and background
 			var groundX = 10
@@ -44,7 +45,6 @@
 			var step = 1
 			var view = 0 // 0:perspective 1:above 2:POV
 			var dir = RIGHT
-			var prevDir = RIGHT
 			var dirList = [0,0,0]
             var bodyPos = [[-groundX/2+2.5,0.5],[-groundX/2+1.5,0.5],[-groundX/2+0.5,0.5]]
 			
@@ -76,7 +76,7 @@
 			
 			var c_apple = new THREE.MeshPhongMaterial( {color: 0xe01000} )
 			var c_brown = new THREE.MeshPhongMaterial( {color: 0x6B4423} )
-			
+            
 			var c_sun = new THREE.MeshBasicMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'sun_bright_texture.jpg')} )
 			var c_moon = new THREE.MeshPhongMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'moon_texture.jpg')} )
 			
@@ -99,12 +99,12 @@
             for (var i=0; i<sectors; i++) {
                 var side = new THREE.Mesh( geometry,
                     new THREE.MeshBasicMaterial( {color: 0xffffff, 
-                    map: THREE.ImageUtils.loadTexture( 'milky'+(i%4)+'.jpg' )} ) ) //'_texture.jpg'
+                    map: THREE.ImageUtils.loadTexture( 'milky_low'+(i%4)+'.jpg' )} ) ) //'_texture.jpg'
                 side.position.set( radius*Math.sin(i*PI*2/sectors), 2, -radius*Math.cos(i*PI*2/sectors) )
                 side.rotation.y = -i*PI*2/sectors
-                pivotBG.add( side )
+                pivotBG.add( side ) // pivotBG -> child 0..sectors-1
             }
-            scene.add( pivotBG )
+            scene.add( pivotBG ) // scene -> child 0
 			
 			// ground
             var geometry = new THREE.BoxGeometry(groundX,groundY,groundZ)
@@ -113,31 +113,31 @@
 			mud.position.y = - groundY
 			var gridHelper = new THREE.GridHelper( 10, 10, c_black, c_black);
 			gridHelper.position.y = groundY/2 + 0.01
-			ground.add( gridHelper )
-			ground.add( mud )
-			scene.add(ground)
+			ground.add( gridHelper ) // ground -> child 0
+			ground.add( mud ) // ground -> child 1
+			scene.add(ground) // scene -> child 1
 			
 			// centre of the SNAKE
 			var pivotSnake = new THREE.Object3D()
 			pivotSnake.position.set( bodyPos[0][0], segLen/2, bodyPos[0][1] )
 			pivotSnake.rotation.z = -PI/2
-			ground.add(pivotSnake)
+			ground.add(pivotSnake) //ground -> child 2
 			
 			// Chin
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, 0, PI)
 			var chin = new THREE.Mesh( geometry, c_green_skin )
-			pivotSnake.add(chin)
+			pivotSnake.add(chin) // pivotSnake -> child 0
 			
 			// centre of Head motion
 			var pivotHead = new THREE.Object3D()
 			pivotHead.position.y = -segLen/2
-			chin.add(pivotHead)			
+			chin.add(pivotHead)	// chin -> child 0		
 			
 			// Head
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, PI, PI)
 			var head = new THREE.Mesh( geometry, c_green_skin )
 			head.position.y = segLen/2
-			pivotHead.add(head)
+			pivotHead.add(head) // pivotHead -> child 0
 			
 			// Mouth (Chin + Head)
 			var line = new THREE.Shape()
@@ -152,8 +152,8 @@
 			var mouth_chin = new THREE.Mesh( geometry, c_red_dark )
 			mouth_head.rotation.y = PI/2
 			mouth_chin.rotation.y = PI/2
-			head.add(mouth_head)
-			chin.add(mouth_chin)
+			head.add(mouth_head) // head -> child 0
+			chin.add(mouth_chin) // chin -> child 1
 			
 			// Tongue
 			var line = new THREE.Shape()
@@ -167,7 +167,7 @@
 			var back_tongue = new THREE.Mesh( geometry, c_pink )
 			back_tongue.rotation.y = PI/2
 			back_tongue.position.x = -0.01
-			chin.add(back_tongue)
+			chin.add(back_tongue) // chin -> child 2
 			var line = new THREE.Shape()
 			line.moveTo( -muzzleRad/2, 0 )
 			line.lineTo( -muzzleRad/2, segLen/2 )
@@ -182,37 +182,38 @@
 			var tongue = new THREE.Mesh( geometry, c_pink )
 			tongue.rotation.y = PI/2
 			tongue.position.x = -0.01
-			chin.add(tongue)
+			chin.add(tongue) // chin -> child 3
 			
 			// Eyes
 			var geometry = new THREE.SphereGeometry (segRad/4, 16, 16)
 			var eyeR = new THREE.Mesh( geometry, c_white )
 			eyeR.position.set(-segRad/2,0,segRad/2)
-			head.add(eyeR)
+			head.add(eyeR) // head -> child 1
 			var eyeL = new THREE.Mesh( geometry, c_white )
 			eyeL.position.set(-segRad/2,0,-segRad/2)
-			head.add(eyeL)
+			head.add(eyeL) // head -> child 2
 			
 			// levelUP
 			var levelUP = function () {
 				// replace tail with the body on actual seg
-				pivotList[ lev ].remove( TAIL )
-				pivotList[ lev ].add( BODY_CYL.clone() )
+				pivotList[ lev ].remove( TAIL ) // pivotList[lev] -> remove 1
+				pivotList[ lev ].add( BODY_CYL.clone() ) // pivotList[lev] -> child 1
 				// add the next pivot in the list
 				pivotList.push( pivotList[lev].children[0] )
 				// move to the next seg
 				lev++
+                t_step = 20-Math.floor(lev/5)
 				console.log("levelUP >",lev)
 				// add as child: next pivot, tail
-				pivotList[ lev ].add( BODY_PIVOT.clone() )
-				pivotList[ lev ].add( TAIL )
+				pivotList[ lev ].add( BODY_PIVOT.clone() ) // pivotList[lev] -> child 0
+				pivotList[ lev ].add( TAIL ) // pivotList[lev] -> child 1
 			}
 			
 			// Initial Body
 			var pivotList = [ BODY_PIVOT.clone() ]
-			pivotSnake.add( pivotList[0] )
-			pivotList[0].add( BODY_PIVOT.clone() )
-			pivotList[0].add( TAIL )
+			pivotSnake.add( pivotList[0] ) // pivotSnake -> child 1
+			pivotList[0].add( BODY_PIVOT.clone() ) // pivotList[0] -> child 0
+			pivotList[0].add( TAIL ) // pivotList[0] -> child 1
 			
 			// return if the obj is in an illegal position
 			var invalidPos = function (obj) {
@@ -248,14 +249,14 @@
 			randPosApple()
 			apple.position.y = appleTube + groundY/2
 			apple.rotation.x = -PI/2
-			ground.add( apple )
+			ground.add( apple ) // ground -> child 3
 			
 			// Petiole
 			var geometry = new THREE.ConeGeometry( 0.05, appleTube, 16 )
 			var petiole = new THREE.Mesh( geometry, c_brown )
 			petiole.rotation.x = -PI/4
 			petiole.position.z = appleTube
-			apple.add( petiole )
+			apple.add( petiole ) // apple -> child 0
 
 			// Camera
 			var refreshCamera = function (pos) {
@@ -287,21 +288,23 @@
 				refreshCamera( pivotSnake.position )
 			}
 
-			// Light
-            scene.add ( new THREE.AmbientLight( c_white, 0.1 ) )
-			var sunLight = new THREE.DirectionalLight( c_sun, 1.5 )
-			scene.add( sunLight )
-			var moonLight = new THREE.DirectionalLight( c_moon, 0.5 )
-			scene.add( moonLight )
-			var sun = new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun )
-			scene.add( sun )
-			var moon = new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon )
-			scene.add( moon )           
+			// Ambient Light
+            scene.add ( new THREE.AmbientLight( c_white, 0.1 ) ) // scene -> child 2
+            // Sun
+            var pivotSun = new THREE.Object3D()
+			scene.add(pivotSun) // scene -> child 3
+			pivotSun.add( new THREE.DirectionalLight( c_sun, 1.5 ) ) // pivotSun -> child 0, LIGHT
+			pivotSun.add( new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun ) ) // pivotSun -> child 1, SPHERE
+            // Moon
+            var pivotMoon = new THREE.Object3D()
+			scene.add(pivotMoon) // scene -> child 4
+			pivotMoon.add( new THREE.DirectionalLight( c_moon, 0.5 ) ) // pivotMoon -> child 0, LIGHT
+			pivotMoon.add( new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon ) ) // pivotMoon -> child 1, SPHERE 
             
             // SHADOWS 
             // castShadow = block light
-            sunLight.castShadow = true
-            moonLight.castShadow = true
+            pivotSun.children[0].castShadow = true
+            pivotMoon.children[0].castShadow = true
             ground.castShadow = true
             //mud.castShadow = true
             chin.castShadow = true
@@ -340,16 +343,16 @@
                 
                 // TEST: move and levelUP
                 //if ( keyCode>=37 && keyCode<=40 ) move()
-                /*if ( keyCode == 13 ){
+                if ( keyCode == 13 ){
                     dirList.push(dirList[lev])
                     bodyPos.push(bodyPos[lev])
                     levelUP()
-                }*/
+                }
 			}
 			
 			var move = function () {
 				// move the snake (pivotSnake)
-				if ( dir == RIGHT ){ 		// RIGHT
+                if ( dir == RIGHT ){ 		// RIGHT
 					pivotSnake.position.x += step
 				} else if ( dir == LEFT ){	// LEFT
 					pivotSnake.position.x -= step
@@ -358,7 +361,7 @@
 				} else if( dir == UP ){ 	// UP
 					pivotSnake.position.z -= step
 				}
-				if (invalidPos(pivotSnake)) return false
+				//if (invalidPos(pivotSnake)) return false
 				
 				// add head elements to the flow lists
 				dirList.unshift(dir)
@@ -388,24 +391,65 @@
 						var tor = BODY_TOR.clone()
 						tor.rotation.set( 0, turn*PI/2, 0 )
 						tor.position.set( 0, -0.5, turn*0.5 )
-						pivotList[i].remove( pivotList[i].children[1] )
-						pivotList[i].add( tor )
+						pivotList[i].remove( pivotList[i].children[1] ) // pivotList[i] -> remove 1
+						pivotList[i].add( tor ) // pivotList[i] -> child 1
 					} else if ( dirList[i+1] != dirList[i+2] ) { // before it was a Tor
 						pivotList[i].rotation.x = 0
-						pivotList[i].remove( pivotList[i].children[1] )
-						pivotList[i].add( BODY_CYL.clone() )
+						pivotList[i].remove( pivotList[i].children[1] ) // pivotList[i] -> remove 1
+						pivotList[i].add( BODY_CYL.clone() ) // pivotList[i] -> child 1
 					}
 				}
-				
-				
 				return true
 			}
+            
+            var moveBody = function () {
+                s = (t % t_step) / t_step
+                chin.position.y = s // HEAD
+                // FIRST BODYSEC
+                if (dirList[0] != dirList[1]) { // before a TOR
+                    if (pivotSnake.children.length==2) pivotSnake.add( BODY_CYL.clone() ) // pivotSnake -> child 2
+                    else if ( s==0 ) pivotSnake.remove( pivotSnake.children[2] ) // pivotSnake -> remove 2
+                    else { // expand to keep the body connected
+                        pivotSnake.children[2].position.y = -segLen/2+s/2
+                        pivotSnake.children[2].scale.y = s
+                    }
+                } else pivotList[0].children[1].position.y = s
+                
+                // BODY
+				for ( var i=0; i<lev; i++ ) {
+                    // dir[0] <-> head direction
+                    // i-th pivot <-> (i+1)-th dir
+                    if (dirList[i+1] == dirList[i]) { // same direction == not a TOR
+                        if ( i>0 ) {
+                            if (dirList[i+1] != dirList[i-1]) { // after a TOR : collapse
+                                pivotList[i].children[1].position.y = s/2
+                                pivotList[i].children[1].scale.y = 1-s
+                            } else  // move as a rigid body
+                                pivotList[i].children[1].position.y = s
+                        }
+                        if ( i<lev-1 ) {
+                            if (dirList[i+1] != dirList[i+2]) { // before a TOR : create a clone to keep the snake compact
+                                if (pivotList[i].children.length==2) pivotList[i].add( BODY_CYL.clone() ) // pivotList[i] -> child 2
+                                else if (s == 0) pivotList[i].remove( pivotList[i].children[2] ) // pivotList[i] -> remove 2
+                            }
+                        }
+                    }
+				}
+                TAIL.position.y = s
+            }
 			
             var redPos = 0
 			var game = function () {
 				requestAnimationFrame( game )
                 if (inGame) {
-                    if ( Math.round(t*10)%(20-Math.floor(lev/5)) == 0 ) {
+                    
+                    pivotHead.rotation.z = PI/6*Math.sin(t/10) + PI/6 // mouth
+                    tongue.position.y = segLen/2*Math.sin(t/10) - segLen/2 // tongue
+                    
+                    moveBody()
+                  
+                    // skeleton motion (real motion)
+                    if ( t % t_step == 0 ) {
                         if (nextMoves.length) {
                             key = nextMoves.shift()
                             if ( view==2) { // relative movement (POV)
@@ -426,38 +470,56 @@
                         inGame = move()
                     }
                     
-                    // snake constant motion
-                    pivotHead.rotation.z = PI/6*Math.sin(t) + PI/6
-                    tongue.position.y = segLen/2*Math.sin(t) - segLen/2
-                } else if ( Math.round(t*10)%2 == 0 ) {
+                    
+                } else if ( t % 2 == 0 ) { // gameover animation
                     pivotList[redPos++%pivotList.length].children[1].material = c_green_skin
                     pivotList[redPos%pivotList.length].children[1].material = c_red_dark
                 }
                 
                 // apple motion
-				apple.position.y = Math.sin(t/2)/10+0.1 + appleTube+groundY/2
+				apple.position.y = Math.sin(t/20)/10+0.1 + appleTube+groundY/2
 				apple.rotation.z += 0.05
                 
                 // background rotation
                 pivotBG.rotation.y += 0.0001
 				
 				// light
-				sunPos.y = 8*Math.cos(t/20)
-				sunPos.z = -8*Math.sin(t/20)
-				sun.position.set( sunPos.x, sunPos.y, sunPos.z )
-				sunLight.position.set( sunPos.x, sunPos.y, sunPos.z )//.normalize()
+				sunPos.y = 8*Math.cos(t/200)
+				sunPos.z = -8*Math.sin(t/200)
+				pivotSun.position.set( sunPos.x, sunPos.y, sunPos.z )
+				//sunLight.position.set( sunPos.x, sunPos.y, sunPos.z )//.normalize()
 				
-                moonPos.y = 8*Math.cos(t/22 + PI)
-				moonPos.z = 8*Math.sin(t/22)
-				moon.position.set( moonPos.x, moonPos.y, moonPos.z );
-				moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
+                moonPos.y = 8*Math.cos(t/220 + PI)
+				moonPos.z = 8*Math.sin(t/220)
+				pivotMoon.position.set( moonPos.x, moonPos.y, moonPos.z );
+				//moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
 				
 				//renderer.render( backgroundScene, backgroundCamera )
 				renderer.render( scene, camera )
-				t += 0.1
+				//t = Math.round(t*10+2)/10 // TEST: slow motion
+                t += 1
 			}
 			
 			game()
 		</script>
 	</body>
 </html>
+
+<!-- HIERARCHICAL TREE 
+                     /  side0                                                                    /  moouth_head
+         /  pivotBG |   ...                                          /  pivot_head  <   head    |   eyeR
+        |            \  side16                                      |                            \  eyeL
+        |                                            /  chin        |   mouth_chin
+        |            /  GridHelper                  |               |   back_tongue 
+        |   ground  |   mud                         |                \  tongue 
+        |           |   pivotSnake  ----------------|                                            /  body_pivot(lev) <   body_pivot(lev+1)
+scene   |            \  apple       <   petiole     |                                /  ...     |
+        |                                           |                /  body_pivot1 |            \  tail
+        |   ambientLight                             \  body_pivot0 |                \  body_tor
+        |                                                            \  body_cyl
+        |   pivotSun    /   light                       
+        |               \   sphere                                         
+        |           
+         \  pivotMoon   /   light
+                        \   sphere
+-->
