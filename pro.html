@@ -28,7 +28,7 @@
 			var LEFT = 2
 			var DOWN = 3
 			var t = 0 		// time
-			var lev = 0		// level
+			var lev = 1		// level
             var t_step = 20 // time between 2 steps
 			
 			// ground and background
@@ -44,9 +44,11 @@
 			// movement's variables
 			var step = 1
 			var view = 0 // 0:perspective 1:above 2:POV
-			var dir = RIGHT
-			var dirList = [0,0,0]
             var bodyPos = [[-groundX/2+2.5,0.5],[-groundX/2+1.5,0.5],[-groundX/2+0.5,0.5]]
+			var dir = RIGHT
+            var prevDir = RIGHT
+            var dirBuffer = []
+            var turnList = [0,0,0] // -1:R, 0:-, 1:L
 			
 			// apple measures
 			var appleRadius = segLen/8.5 	//0.12
@@ -81,12 +83,34 @@
 			var c_moon = new THREE.MeshPhongMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'moon_texture.jpg')} )
 			
 			// OBJECTS
-			var BODY_PIVOT = new THREE.Object3D()
-			BODY_PIVOT.position.y = -segLen
-			var BODY_CYL = new THREE.Mesh( new THREE.CylinderGeometry( segRad-0.05, segRad, segLen, 32 ), c_green_skin )
-			var BODY_TOR = new THREE.Mesh( new THREE.TorusGeometry( 1/2, segRad, 32, 96, PI/2 ), c_green_skin )
+			//var PIVOT = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_white )
+			var PIVOT = new THREE.Object3D()
+			PIVOT.position.y = -segLen
+			var CYL = new THREE.Mesh( new THREE.CylinderGeometry( segRad-0.05, segRad, segLen, 32 ), c_green_skin )
+            CYL.castShadow = true
+            CYL.receiveShadow = true
+			var TOR = new THREE.Mesh( new THREE.TorusGeometry( 1/2, segRad, 32, 96, PI/2 ), c_green_skin )
+            TOR.position.y = -segLen/2
+            TOR.castShadow = true
+            TOR.receiveShadow = true
 			var TAIL = new THREE.Mesh( new THREE.ConeGeometry( segRad, segLen, 32 ), c_green_skin )
 			TAIL.rotation.z = PI
+            TAIL.castShadow = true
+            TAIL.receiveShadow = true
+            
+            var pivotList = [ PIVOT.clone(), PIVOT.clone() ]    // skeleton
+            var bodySegList = [ CYL.clone(), CYL.clone() ]      // straight seg
+            var bodyCurList = [ TOR.clone(), TOR.clone() ]      // curved seg
+            var suppSegList = [ CYL.clone(), CYL.clone() ]      // support straight seg (for animated curve)
+            var suppSegChin = CYL.clone()                       // support straight seg (for chin before curve)
+            var suppCurList = [ ]                               // support curved seg (for animated tail curve)
+            for (var i=1; i<=10; i++) {
+                var supp_tor = new THREE.Mesh( new THREE.TorusGeometry( 1/2, segRad, 32, 96, i*PI/20 ), c_green_skin )
+                supp_tor.position.y = -segLen/2
+                supp_tor.castShadow = true
+                supp_tor.receiveShadow = true
+                suppCurList.unshift( supp_tor )
+            }
             
             // sky
             var pivotBG = new THREE.Object3D()
@@ -109,35 +133,41 @@
 			// ground
             var geometry = new THREE.BoxGeometry(groundX,groundY,groundZ)
 			var ground = new THREE.Mesh(geometry, c_green_grass)
+            ground.castShadow = true
+            ground.receiveShadow = true
 			var mud = new THREE.Mesh(geometry, c_brown)
 			mud.position.y = - groundY
 			var gridHelper = new THREE.GridHelper( 10, 10, c_black, c_black);
 			gridHelper.position.y = groundY/2 + 0.01
 			ground.add( gridHelper ) // ground -> child 0
-			ground.add( mud ) // ground -> child 1
-			scene.add(ground) // scene -> child 1
+			ground.add( mud ) 
+			scene.add(ground) 
 			
-			// centre of the SNAKE
+			/** SNAKE **/
+			//var pivotSnake = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
 			var pivotSnake = new THREE.Object3D()
 			pivotSnake.position.set( bodyPos[0][0], segLen/2, bodyPos[0][1] )
 			pivotSnake.rotation.z = -PI/2
-			ground.add(pivotSnake) //ground -> child 2
+			ground.add(pivotSnake) 
 			
-			// Chin
+            /** HEAD **/
+            // Chin
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, 0, PI)
 			var chin = new THREE.Mesh( geometry, c_green_skin )
-			pivotSnake.add(chin) // pivotSnake -> child 0
-			
+            chin.castShadow = true
+			pivotSnake.add(chin) 
+            
 			// centre of Head motion
 			var pivotHead = new THREE.Object3D()
 			pivotHead.position.y = -segLen/2
-			chin.add(pivotHead)	// chin -> child 0		
+			chin.add(pivotHead)	// chin -> child 0	
 			
 			// Head
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, PI, PI)
 			var head = new THREE.Mesh( geometry, c_green_skin )
 			head.position.y = segLen/2
-			pivotHead.add(head) // pivotHead -> child 0
+            head.castShadow = true
+			pivotHead.add(head)
 			
 			// Mouth (Chin + Head)
 			var line = new THREE.Shape()
@@ -152,6 +182,8 @@
 			var mouth_chin = new THREE.Mesh( geometry, c_red_dark )
 			mouth_head.rotation.y = PI/2
 			mouth_chin.rotation.y = PI/2
+            mouth_head.castShadow = true
+            mouth_chin.receiveShadow = true
 			head.add(mouth_head) // head -> child 0
 			chin.add(mouth_chin) // chin -> child 1
 			
@@ -180,41 +212,60 @@
 			var extrudeSettings = { depth: 0.05, bevelEnabled: false}
 			var geometry = new THREE.ExtrudeGeometry( line, extrudeSettings )
 			var tongue = new THREE.Mesh( geometry, c_pink )
+            tongue.receiveShadow = true
+            tongue.castShadow = true
 			tongue.rotation.y = PI/2
 			tongue.position.x = -0.01
-			chin.add(tongue) // chin -> child 3
+			chin.add(tongue)
 			
 			// Eyes
 			var geometry = new THREE.SphereGeometry (segRad/4, 16, 16)
 			var eyeR = new THREE.Mesh( geometry, c_white )
 			eyeR.position.set(-segRad/2,0,segRad/2)
-			head.add(eyeR) // head -> child 1
+			head.add(eyeR)
 			var eyeL = new THREE.Mesh( geometry, c_white )
 			eyeL.position.set(-segRad/2,0,-segRad/2)
-			head.add(eyeL) // head -> child 2
+			head.add(eyeL)
 			
+            /** BODY **/
+            pivotSnake.add( pivotList[0] )
+            pivotList[0].add( bodySegList[0] )
+            
+            /** TAIL **/
+            pivotList[0].add( pivotList[1] )
+            //var tail_LCM = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
+            var tail_LCM = new THREE.Object3D()
+            tail_LCM.position.set(0,segLen/2,-segLen/2)
+            //var tail_RCM = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_moon )
+            var tail_RCM = new THREE.Object3D()
+            tail_RCM.position.set(0,0,segLen)
+            
+            pivotList[1].add( tail_LCM )
+            tail_LCM.add( tail_RCM )
+            TAIL.position.set(0,-segLen/2,-segLen/2)
+            tail_RCM.add( TAIL )
+            
+            //pivotList[1].add( TAIL )
+            
 			// levelUP
 			var levelUP = function () {
+                // create a new level in the objects lists
+                pivotList.push( PIVOT.clone() )
+                bodySegList.push( CYL.clone() )
+                bodyCurList.push( TOR.clone() )
+                suppSegList.push( CYL.clone() )
+            
 				// replace tail with the body on actual seg
-				pivotList[ lev ].remove( TAIL ) // pivotList[lev] -> remove 1
-				pivotList[ lev ].add( BODY_CYL.clone() ) // pivotList[lev] -> child 1
-				// add the next pivot in the list
-				pivotList.push( pivotList[lev].children[0] )
-				// move to the next seg
-				lev++
+				pivotList[ lev ].remove( tail_LCM ) //TAIL )
+				pivotList[ lev ].add( bodySegList[lev] )
+				// go to the next level !
+				pivotList[ lev ].add( pivotList[++lev] )
+				pivotList[ lev ].add( tail_LCM ) //TAIL )
+                // compute the new t_steps
                 t_step = 20-Math.floor(lev/5)
 				console.log("levelUP >",lev)
-				// add as child: next pivot, tail
-				pivotList[ lev ].add( BODY_PIVOT.clone() ) // pivotList[lev] -> child 0
-				pivotList[ lev ].add( TAIL ) // pivotList[lev] -> child 1
 			}
-			
-			// Initial Body
-			var pivotList = [ BODY_PIVOT.clone() ]
-			pivotSnake.add( pivotList[0] ) // pivotSnake -> child 1
-			pivotList[0].add( BODY_PIVOT.clone() ) // pivotList[0] -> child 0
-			pivotList[0].add( TAIL ) // pivotList[0] -> child 1
-			
+	
 			// return if the obj is in an illegal position
 			var invalidPos = function (obj) {
 				// out of world
@@ -243,12 +294,13 @@
 				console.log("An apple is appeared in",apple.position.x,",",apple.position.z)
 			}
 			
-			// Apple
+            /** APPLE **/
 			var geometry = new THREE.TorusGeometry( appleRadius, appleTube, 32, 96 )
 			var apple = new THREE.Mesh( geometry, c_apple )
 			randPosApple()
 			apple.position.y = appleTube + groundY/2
 			apple.rotation.x = -PI/2
+            apple.castShadow = true
 			ground.add( apple ) // ground -> child 3
 			
 			// Petiole
@@ -258,21 +310,22 @@
 			petiole.position.z = appleTube
 			apple.add( petiole ) // apple -> child 0
 
-			// Camera
+			/** CAMERA **/
 			var refreshCamera = function (pos) {
 				if ( view==2) { // POV
+                    s = 1-timer/t_step
 					if ( dir==RIGHT) {
-						camera.position.set( pos.x-1, 1.5, pos.z )
-						camera.lookAt( pos.x+2, 0, pos.z )
+						camera.position.set( pos.x-1+s, 2.3, pos.z )
+						camera.lookAt( pos.x+2+s, 0, pos.z )
 					}else if ( dir==LEFT ) {
-						camera.position.set( pos.x+1, 1.5, pos.z )
-						camera.lookAt( pos.x-2, 0, pos.z )
+						camera.position.set( pos.x+1-s, 2.3, pos.z )
+						camera.lookAt( pos.x-2-s, 0, pos.z )
 					}else if ( dir==UP ) {
-						camera.position.set( pos.x, 1.5, pos.z+1 )
-						camera.lookAt( pos.x, 0, pos.z-2 )
+						camera.position.set( pos.x, 2.3, pos.z+1-s )
+						camera.lookAt( pos.x, 0, pos.z-2-s )
 					}else if ( dir==DOWN ) {
-						camera.position.set( pos.x, 1.5, pos.z-1 )
-						camera.lookAt( pos.x, 0, pos.z+2 )
+						camera.position.set( pos.x, 2.3, pos.z-1+s )
+						camera.lookAt( pos.x, 0, pos.z+2+s )
 					}
 				} else if ( view==0 ) { // perspective
 					camera.position.set( 0, 7, 6 )
@@ -288,53 +341,53 @@
 				refreshCamera( pivotSnake.position )
 			}
 
+            /** LIGHT **/
 			// Ambient Light
             scene.add ( new THREE.AmbientLight( c_white, 0.1 ) ) // scene -> child 2
             // Sun
             var pivotSun = new THREE.Object3D()
 			scene.add(pivotSun) // scene -> child 3
-			pivotSun.add( new THREE.DirectionalLight( c_sun, 1.5 ) ) // pivotSun -> child 0, LIGHT
-			pivotSun.add( new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun ) ) // pivotSun -> child 1, SPHERE
+			pivotSun.add( new THREE.DirectionalLight( c_sun, 1.5 ) ) // LIGHT
+			pivotSun.add( new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun ) ) // SPHERE
+            pivotSun.children[0].castShadow = true
             // Moon
             var pivotMoon = new THREE.Object3D()
 			scene.add(pivotMoon) // scene -> child 4
-			pivotMoon.add( new THREE.DirectionalLight( c_moon, 0.5 ) ) // pivotMoon -> child 0, LIGHT
-			pivotMoon.add( new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon ) ) // pivotMoon -> child 1, SPHERE 
-            
-            // SHADOWS 
-            // castShadow = block light
-            pivotSun.children[0].castShadow = true
+			pivotMoon.add( new THREE.DirectionalLight( c_moon, 0.5 ) ) // LIGHT
+			pivotMoon.add( new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon ) ) // SPHERE 
             pivotMoon.children[0].castShadow = true
-            ground.castShadow = true
-            //mud.castShadow = true
-            chin.castShadow = true
-            head.castShadow = true
-            mouth_head.castShadow = true
-            tongue.castShadow = true
-            BODY_CYL.castShadow = true
-            BODY_TOR.castShadow = true
-            TAIL.castShadow = true
-            apple.castShadow = true
-            // receiveShadow = show shadow
-            ground.receiveShadow = true
-            //mud.receiveShadow = true
-            mouth_chin.receiveShadow = true
-            tongue.receiveShadow = true
-            BODY_CYL.receiveShadow = true
-            BODY_TOR.receiveShadow = true
-            TAIL.receiveShadow = true
             
-			levelUP() // start with one bodySeg
-			
+            /** SOUND **/
+            var listener = new THREE.AudioListener()
+            camera.add( listener );
+            var sound = new THREE.Audio( listener ) //global audio source            
+            
+            var sound_base = new Audio('countryside.ogg')
+            sound_base.loop = true
+            sound_base.play()
+            
+            var sound_apple_bite = new Audio('apple_bite.ogg')
+            sound_apple_bite.loop = false
+           
+            /** KEYBOARD LISTENER **/
             var nextMoves = []
 			document.addEventListener("keydown", onDocumentKeyDown, true)
 			function onDocumentKeyDown(event) {
                 var keyCode = event.which
-                if ( keyCode>=37 && keyCode<=40                 // directional key pressed 
-                    && nextMoves.length<4                       // max macro = 3
-                    && (nextMoves[nextMoves.length-1]!=keyCode  // different from the last one
-                        || view == 2) )                         //    but not in POV
-                    nextMoves.push(keyCode)
+                
+                if ( keyCode>=37 && keyCode<=40) { // directional key pressed
+                    // selection of desider new direction
+                    if ( view==2 ) { // relative movement (POV)
+                        if ( keyCode==39 ) newDir = (dir+3)%4 // turn RIGHT (-1)
+                        else if ( keyCode==37) newDir = (dir+1)%4 // turn LEFT (+1)
+                    } else  // absolute movement
+                        newDir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                    
+                    // if newDir determine a curve respect lastDir there are no more than 4 direction stored in buffer
+                    var lastDir = dirBuffer.length ? dirBuffer[dirBuffer.length-1] : dir
+                    if ( Math.abs(newDir-lastDir)%2 && dirBuffer.length<4 )
+                        dirBuffer.push(newDir)
+                }
                 
                 if ( keyCode == 86 ) { // change view - v
                     view = (view+1)%3 
@@ -342,134 +395,177 @@
                 }
                 
                 // TEST: move and levelUP
-                //if ( keyCode>=37 && keyCode<=40 ) move()
-                if ( keyCode == 13 ){
-                    dirList.push(dirList[lev])
+                /*if ( keyCode>=37 && keyCode<=40 ) {
+                    dir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                    move()
+                }*/
+                if ( keyCode == 13 ){ // enter
+                    //timer -= 0.1
+                    turnList.push(0)
                     bodyPos.push(bodyPos[lev])
-                    levelUP()
+                    levelUP()//*/
                 }
 			}
 			
+            /** MOVE THE PIVOT **/
 			var move = function () {
-				// move the snake (pivotSnake)
-                if ( dir == RIGHT ){ 		// RIGHT
-					pivotSnake.position.x += step
-				} else if ( dir == LEFT ){	// LEFT
-					pivotSnake.position.x -= step
-				} else if ( dir == DOWN ){	// DOWN
-					pivotSnake.position.z += step
-				} else if( dir == UP ){ 	// UP
-					pivotSnake.position.z -= step
-				}
+                // reset skin position
+				moveBody(reset=true)
+                timer = t_step
+                
+                pivotSnake.position.x += dir==RIGHT ? step : (dir==LEFT ? -step : 0 )
+                pivotSnake.position.z += dir==DOWN ? step : (dir==UP ? -step : 0 )
+				
 				//if (invalidPos(pivotSnake)) return false
 				
 				// add head elements to the flow lists
-				dirList.unshift(dir)
                 bodyPos.unshift([pivotSnake.position.x, pivotSnake.position.z])
+                var turn = dir - prevDir
+                if (turn == 3) turn = -1 // turn to right [-1,3]
+				if (turn == -3) turn = 1 // turn to left  [1,-3]
+                turnList.unshift(turn)
+                prevDir = dir
                 
                 // check if it ate an apple
 				if (apple.position.x == pivotSnake.position.x &&
 					apple.position.z == pivotSnake.position.z) {
+                    if(sound_apple_bite.playing) sound_apple_bite.stop()
+                    sound_apple_bite.play()
 					levelUP()
 					randPosApple()
 				} else {
-                    dirList.pop()
+                    turnList.pop()
                     bodyPos.pop()
                 }
 				
 				// rotate the head (and the camera if in POV)
-				pivotSnake.rotation.y = dirList[0] * PI/2
-				if ( view==2 ) refreshCamera( pivotSnake.position )
+				pivotSnake.rotation.y = dir * PI/2
 				
 				// rotate the rest of the body
-				for ( var i=0; i<lev; i++ ) {
-					var turn = dirList[i+1] - dirList[i] // dirList[0] is the head dir
-					if ( turn ) { // turn!
-						if (turn == 3) turn = -1 // turn to right [-1,3]
-						if (turn == -3) turn = 1 // turn to left  [1,-3]
-						pivotList[i].rotation.x = -turn*PI/2
-						var tor = BODY_TOR.clone()
-						tor.rotation.set( 0, turn*PI/2, 0 )
-						tor.position.set( 0, -0.5, turn*0.5 )
-						pivotList[i].remove( pivotList[i].children[1] ) // pivotList[i] -> remove 1
-						pivotList[i].add( tor ) // pivotList[i] -> child 1
-					} else if ( dirList[i+1] != dirList[i+2] ) { // before it was a Tor
-						pivotList[i].rotation.x = 0
-						pivotList[i].remove( pivotList[i].children[1] ) // pivotList[i] -> remove 1
-						pivotList[i].add( BODY_CYL.clone() ) // pivotList[i] -> child 1
+				for ( var i=0; i<lev; i++ ) {                
+                    if ( turnList[i] ) { // curve!
+                        pivotList[i].rotation.x = turnList[i]*PI/2      // rotate the pivot
+						pivotList[i].remove( bodySegList[i] )           // remove Seg (cyl)
+						bodyCurList[i].rotation.y = -turnList[i]*PI/2
+						bodyCurList[i].position.z = -turnList[i]*segLen/2
+						pivotList[i].add( bodyCurList[i] )              // add Curve (tor)
+                    } else if ( turnList[i+1] ) { // before it was a Tor
+						pivotList[i].rotation.x = 0                     // rotate back the pivot
+						pivotList[i].remove( bodyCurList[i] )           // remove Curve
+						pivotList[i].add( bodySegList[i] )              // add Seg
 					}
 				}
 				return true
 			}
             
-            var moveBody = function () {
-                s = (t % t_step) / t_step
-                chin.position.y = s // HEAD
-                // FIRST BODYSEC
-                if (dirList[0] != dirList[1]) { // before a TOR
-                    if (pivotSnake.children.length==2) pivotSnake.add( BODY_CYL.clone() ) // pivotSnake -> child 2
-                    else if ( s==0 ) pivotSnake.remove( pivotSnake.children[2] ) // pivotSnake -> remove 2
-                    else { // expand to keep the body connected
-                        pivotSnake.children[2].position.y = -segLen/2+s/2
-                        pivotSnake.children[2].scale.y = s
-                    }
-                } else pivotList[0].children[1].position.y = s
+            /** MOVE THE SKIN (during the t_steps) **/
+            var prev_ind
+            var moveBody = function (reset=false) {
+                // timer = t_step -> 0
+                // s     = 0      -> 1
+                s = reset ? 1 : 1-timer/t_step
                 
-                // BODY
-				for ( var i=0; i<lev; i++ ) {
-                    // dir[0] <-> head direction
-                    // i-th pivot <-> (i+1)-th dir
-                    if (dirList[i+1] == dirList[i]) { // same direction == not a TOR
-                        if ( i>0 ) {
-                            if (dirList[i+1] != dirList[i-1]) { // after a TOR : collapse
-                                pivotList[i].children[1].position.y = s/2
-                                pivotList[i].children[1].scale.y = 1-s
-                            } else  // move as a rigid body
-                                pivotList[i].children[1].position.y = s
-                        }
-                        if ( i<lev-1 ) {
-                            if (dirList[i+1] != dirList[i+2]) { // before a TOR : create a clone to keep the snake compact
-                                if (pivotList[i].children.length==2) pivotList[i].add( BODY_CYL.clone() ) // pivotList[i] -> child 2
-                                else if (s == 0) pivotList[i].remove( pivotList[i].children[2] ) // pivotList[i] -> remove 2
-                            }
-                        }
+                // INITIAL SETTING: ADD an extra straight seg before each TOR
+                if ( s==0 ) { 
+                    if (turnList[0]) chin.add( suppSegChin )
+                    for (var i=0; i<lev-1; i++) 
+                        if (!turnList[i] && turnList[i+1]) pivotList[i].add( suppSegList[i] )
+                    if(turnList[lev-1]) {
+                        pivotList[lev-1].remove( bodyCurList[lev-1] )
+                        prev_ind = 0
+						suppCurList[0].rotation.y = -turnList[lev-1]*PI/2
+						suppCurList[0].position.z = -turnList[lev-1]*segLen/2
+                        pivotList[lev-1].add( suppCurList[0] )
                     }
-				}
-                TAIL.position.y = s
+                }        
+                // RESET SETTING
+                else if (s>=1) {
+                    chin.position.y = 0
+                    if(turnList[0]) chin.remove( suppSegChin )
+                    for(var i=0; i<lev; i++) {
+                        if (turnList[i+1]) {pivotList[i].remove( suppSegList[i] )}
+                        bodySegList[i].position.y = 0
+                        bodySegList[i].scale.y = 1
+                    }
+                    if(turnList[lev-1]) {
+                        pivotList[lev-1].remove( suppCurList[prev_ind] )
+                        pivotList[lev-1].add( bodyCurList[lev-1] )
+                        tail_LCM.rotation.x = 0
+                        tail_RCM.rotation.x = 0
+                    }
+                    tail_LCM.position.y = segLen/2
+                }
+                // MOTION
+                else {
+                    chin.position.y = s
+                    if (turnList[0]) { // chin before TOR : expand extra seg
+                        suppSegChin.scale.y = s
+                        suppSegChin.position.y = -segLen/2 -s/2
+                    }
+                    for (var i=0; i<lev; i++) {
+                        if (turnList[i-1]) { // after a TOR : collapse
+                            bodySegList[i].position.y = s/2
+                            bodySegList[i].scale.y = 1-s
+                        } else bodySegList[i].position.y = s
+                    }
+                    if ( turnList[lev-1] ){
+                        var ind = Math.min( 1, Math.max( 0, Math.floor(s*10)))
+                        if (ind != prev_ind) {
+                            // tor
+                            pivotList[lev-1].remove( suppCurList[prev_ind] )
+                            suppCurList[ind].rotation.y = -turnList[lev-1]*PI/2
+                            suppCurList[ind].rotation.x = -turnList[lev-1]*ind*PI/20
+                            suppCurList[ind].position.z = -turnList[lev-1]*segLen/2
+                            pivotList[lev-1].add( suppCurList[ind] )
+                            // tail
+                            if(turnList[lev-1]==1) tail_LCM.rotation.x = -ind*PI/20
+                            else tail_RCM.rotation.x = ind*PI/20
+                            
+                            prev_ind = ind
+                        }
+                    } else {
+                        tail_LCM.position.y = segLen/2 + s
+                    }
+                }
             }
 			
+            var timer = t_step
             var redPos = 0
 			var game = function () {
 				requestAnimationFrame( game )
                 if (inGame) {
+                    if ( view==2 ) refreshCamera( pivotSnake.position )
                     
-                    pivotHead.rotation.z = PI/6*Math.sin(t/10) + PI/6 // mouth
-                    tongue.position.y = segLen/2*Math.sin(t/10) - segLen/2 // tongue
+                    /* timer
+                     * 0        ----------
+                     *                                          
+                     *          turn in current line         -- ╔═► -
+                     *                                          ║
+                     * t_step/2 ----------
+                     *          wait to turn in current line -- ┌► --
+                     * t_step/4 ----------                      ║
+                     *          turn in previous line        -- ┬ ---
+                     * t_step   ----------                      ╠═►
+                    **/
                     
-                    moveBody()
-                  
-                    // skeleton motion (real motion)
-                    if ( t % t_step == 0 ) {
-                        if (nextMoves.length) {
-                            key = nextMoves.shift()
-                            if ( view==2) { // relative movement (POV)
-                                if ( key==39 ) dir = (dir+3)%4 // turn RIGHT
-                                else if ( key==37) dir = (dir+1)%4 // turn LEFT
-                            } else { // absolute movement
-                                if (key == 39 && dir != LEFT ) { // RIGHT
-                                    dir = RIGHT
-                                } else if (key == 40 && dir != UP ) { // DOWN
-                                    dir = DOWN
-                                } else if (key == 37 && dir != RIGHT ) { // LEFT
-                                    dir = LEFT
-                                } else if (key == 38 && dir != DOWN ) { // UP
-                                    dir = UP
-                                }
-                            }
-                        }
-                        inGame = move()
+                    if (timer > t_step/2 && dirBuffer.length) {
+                        dir = dirBuffer.shift()
+                        move()
                     }
                     
+                    if (timer > t_step/4 && dirBuffer.length) {
+                        move()
+                        dir = dirBuffer.shift()
+                        move()
+                    }
+                    
+                    // end of cell
+                    if (timer <= 0) move()
+                   
+                    
+                    moveBody()
+                    pivotHead.rotation.z = PI/6*Math.sin(t/10) + PI/6 // mouth
+                    tongue.position.y = segLen/2*Math.sin(t/10) - segLen/2 // tongue
                     
                 } else if ( t % 2 == 0 ) { // gameover animation
                     pivotList[redPos++%pivotList.length].children[1].material = c_green_skin
@@ -487,16 +583,14 @@
 				sunPos.y = 8*Math.cos(t/200)
 				sunPos.z = -8*Math.sin(t/200)
 				pivotSun.position.set( sunPos.x, sunPos.y, sunPos.z )
-				//sunLight.position.set( sunPos.x, sunPos.y, sunPos.z )//.normalize()
 				
                 moonPos.y = 8*Math.cos(t/220 + PI)
 				moonPos.z = 8*Math.sin(t/220)
 				pivotMoon.position.set( moonPos.x, moonPos.y, moonPos.z );
-				//moonLight.position.set( moonPos.x, moonPos.y, moonPos.z )//.normalize()
 				
 				//renderer.render( backgroundScene, backgroundCamera )
 				renderer.render( scene, camera )
-				//t = Math.round(t*10+2)/10 // TEST: slow motion
+                timer -= 1
                 t += 1
 			}
 			
