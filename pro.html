@@ -112,7 +112,23 @@
                 suppCurList.unshift( supp_tor )
             }
             
-            // sky
+            var loader = new THREE.FontLoader();
+
+            loader.load( 'font_rope.json', function ( font ) {
+
+                var geometry = new THREE.TextGeometry( 'Hello three.js!', {
+                    font: font,
+                    size: 80,
+                    height: 5,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 10,
+                    bevelSize: 8,
+                    bevelSegments: 5
+                } );
+            } );
+            
+            /** SKY **/
             var pivotBG = new THREE.Object3D()
             var width = groundX/2
             var sectors = 16
@@ -130,7 +146,7 @@
             }
             scene.add( pivotBG ) // scene -> child 0
 			
-			// ground
+			/** GROUND **/
             var geometry = new THREE.BoxGeometry(groundX,groundY,groundZ)
 			var ground = new THREE.Mesh(geometry, c_green_grass)
             ground.castShadow = true
@@ -262,7 +278,7 @@
 				pivotList[ lev ].add( pivotList[++lev] )
 				pivotList[ lev ].add( tail_LCM ) //TAIL )
                 // compute the new t_steps
-                t_step = 20-Math.floor(lev/5)
+                t_step = Math.max(10, 20-Math.floor(lev/5))
                 timer = Math.min(timer, t_step)
 				console.log("levelUP >",lev)
 			}
