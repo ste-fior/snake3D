@@ -3,22 +3,33 @@
 	<head>
 		<meta charset=utf-8>
 		<title>SNAKE</title>
+        <link href="https://fonts.googleapis.com/css?family=Bangers" rel="stylesheet">
 		<style>
 			body { margin: 0 }
-			canvas { width: 100%; height: 100%}
+            canvas { 
+                position: absolute;
+                width: 100%; 
+                height: 100%;
+                z-index: 0;
+            }
+            div {
+                position: absolute;
+                margin: 10px;
+                z-index: 1;
+                font-family: 'Bangers', cursive;
+                color: white;
+                font-size: 30px;
+            }
+			div#level { @extend div; top: 50px; }
+			div#view { @extend div; top: 100px; }
 		</style>
 				
 	</head>
 	<body>
 		<script src="js/pro.js"></script>
-		
-		<!-- SETTING SECTION -->
-		View:
-		<select id="SelectV">
-		  <option value="0" select="selected">Perspective</option>
-		  <option value="1">Above</option>
-		  <option value="2">Snake</option>
-		</select>
+        
+        <div id='level'> Score 0 </div>
+        <div id='view'> Perspective View </div>
 		
 		<script>
 			// const
@@ -62,13 +73,13 @@
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
 
 			var renderer = new THREE.WebGLRenderer()
-			//renderer.setClearColor(0x000000, 0.0)
             renderer.shadowMap.enabled = true;
             renderer.shadowMapSoft = true;
 			renderer.setSize( window.innerWidth, window.innerHeight )
 			document.body.appendChild( renderer.domElement )
             
 			// materials
+            //var grass_texture = THREE.ImageUtils.loadTexture( 'seamless_grass.jpg', wrapS=THREE.RepeatWrapping, wrapT=THREE.RepeatWrapping)
 			var c_green_grass = new THREE.MeshPhongMaterial({color:0x507500})
 			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
 			var c_white = new THREE.MeshPhongMaterial({color:0xefefef})
@@ -81,6 +92,11 @@
             
 			var c_sun = new THREE.MeshBasicMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'sun_bright_texture.jpg')} )
 			var c_moon = new THREE.MeshPhongMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'moon_texture.jpg')} )
+            
+            /** SETTING PANEL **/
+            var text_level = document.getElementById('level')
+            var text_view = document.getElementById('view')
+            
 			
 			// OBJECTS
 			//var PIVOT = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_white )
@@ -111,22 +127,6 @@
                 supp_tor.receiveShadow = true
                 suppCurList.unshift( supp_tor )
             }
-            
-            var loader = new THREE.FontLoader();
-
-            loader.load( 'font_rope.json', function ( font ) {
-
-                var geometry = new THREE.TextGeometry( 'Hello three.js!', {
-                    font: font,
-                    size: 80,
-                    height: 5,
-                    curveSegments: 12,
-                    bevelEnabled: true,
-                    bevelThickness: 10,
-                    bevelSize: 8,
-                    bevelSegments: 5
-                } );
-            } );
             
             /** SKY **/
             var pivotBG = new THREE.Object3D()
@@ -270,7 +270,6 @@
                 bodySegList.push( CYL.clone() )
                 bodyCurList.push( TOR.clone() )
                 suppSegList.push( CYL.clone() )
-            
 				// replace tail with the body on actual seg
 				pivotList[ lev ].remove( tail_LCM ) //TAIL )
 				pivotList[ lev ].add( bodySegList[lev] )
@@ -281,6 +280,11 @@
                 t_step = Math.max(10, 20-Math.floor(lev/5))
                 timer = Math.min(timer, t_step)
 				console.log("levelUP >",lev)
+                // setting panel
+                text_level.innerHTML = 'Score '+(lev-1);
+                var hex_col = parseInt((t_step-10)*25.5).toString(16)
+                if (hex_col.length == 1) hex_col = '0'+hex_col
+                text_level.style.color = '#ff'+hex_col+hex_col;
 			}
 	
 			// return if the obj is in an illegal position
@@ -330,6 +334,7 @@
 			/** CAMERA **/
 			var refreshCamera = function (pos) {
 				if ( view==2) { // POV
+                    text_view.innerHTML = 'Snake Point Of View'
                     s = 1-timer/t_step
 					if ( dir==RIGHT) {
 						camera.position.set( pos.x-1+s, 2.3, pos.z )
@@ -345,18 +350,16 @@
 						camera.lookAt( pos.x, 0, pos.z+2+s )
 					}
 				} else if ( view==0 ) { // perspective
+                    text_view.innerHTML = 'Perspective view'
 					camera.position.set( 0, 7, 6 )
 					camera.lookAt( 0, 0, 0 )
-				} else if ( view==1 ) { // above
+				} else if ( view==1 ) { // top
+                    text_view.innerHTML = 'Top view'
 					camera.position.set( 0, 7, 0 ) 
 					camera.lookAt( 0, 0, 0 )
 				}
 			}
 			refreshCamera(view) // initial setting
-			document.getElementById("SelectV").onchange = function(event) {
-				view = parseFloat( event.target.value )
-				refreshCamera( pivotSnake.position )
-			}
 
             /** LIGHT **/
 			// Ambient Light
