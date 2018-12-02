@@ -81,6 +81,7 @@
 			// materials
             //var grass_texture = THREE.ImageUtils.loadTexture( 'seamless_grass.jpg', wrapS=THREE.RepeatWrapping, wrapT=THREE.RepeatWrapping)
 			var c_green_grass = new THREE.MeshPhongMaterial({color:0x507500})
+			//var c_green_grass = new THREE.MeshBasicMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'grass.jpg')} )
 			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
 			var c_white = new THREE.MeshPhongMaterial({color:0xefefef})
 			var c_green_skin = new THREE.MeshPhongMaterial({color:0x00f000})
@@ -157,7 +158,55 @@
 			gridHelper.position.y = groundY/2 + 0.01
 			ground.add( gridHelper ) // ground -> child 0
 			ground.add( mud ) 
-			scene.add(ground) 
+			scene.add(ground)
+            
+            /** GRASS **/
+            
+            var geometry = new THREE.BoxGeometry(groundX, groundY, groundZ,10,10,10);
+            var texture = new THREE.CanvasTexture( generateTexture() );
+            for ( var i = 1; i < 2; i ++ ) {
+                var material = new THREE.MeshBasicMaterial( {
+                    color: new THREE.Color().setHSL( 0.3, 0.75, ( i / 10 ) * 0.4 + 0.1 ),
+                    map: texture,
+                    depthTest: false,
+                    depthWrite: false,
+                    transparent: true
+                } );
+
+                var mesh = new THREE.Mesh( geometry, material );
+                mesh.position.y = i * 0.008;
+                //mesh.rotation.x = - Math.PI / 2
+                ground.add(mesh)
+                console.log(mesh.position.y)
+                console.log(ground.position.y)
+            }
+            
+            function generateTexture() {
+
+				var canvas = document.createElement( 'canvas' );
+				canvas.width = 512;
+				canvas.height = 512;
+
+				var context = canvas.getContext( '2d' );
+
+				for ( var i = 0; i < 50000; i ++ ) {
+
+					context.fillStyle = 'hsl(0,0%,' + ( Math.random() * 50 + 50 ) + '%)';
+					context.beginPath();
+					context.arc( Math.random() * canvas.width, Math.random() * canvas.height, Math.random() + 0.15, 0, Math.PI * 2, true );
+					context.fill();
+
+				}
+
+				context.globalAlpha = 0.1//0.075;
+				context.globalCompositeOperation = 'lighter';
+                
+                
+
+				return canvas;
+
+			}
+            
 			
 			/** SNAKE **/
 			//var pivotSnake = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
