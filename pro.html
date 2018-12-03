@@ -161,9 +161,10 @@
 			scene.add(ground)
             
             /** GRASS **/
-            var geometry = new THREE.PlaneGeometry(groundX,groundZ,300,300)
+            var geometry = new THREE.PlaneGeometry(groundX,groundZ,299,299)
             for (var i = 0; i < geometry.vertices.length; i++) {
-                geometry.vertices[i].z = Math.random()/1.5;
+                if ( i%30==0 || parseInt(i/300)%30==0 ) geometry.vertices[i].z = 0 // grid
+                else geometry.vertices[i].z = Math.random()/2
             }
             var grass = new THREE.Mesh(geometry, c_green_grass_texture)
             grass.castShadow = true
