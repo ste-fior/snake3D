@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>SNAKE</title>
+        <link href="https://fonts.googleapis.com/css?family=Bangers" rel="stylesheet">
+		<style>
+			body { margin: 0 }
+            canvas { 
+                position: absolute;
+                width: 100%; 
+                height: 100%;
+                z-index: 0;
+            }
+            div {
+                position: absolute;
+                margin: 10px;
+                z-index: 1;
+                font-family: 'Bangers', cursive;
+                color: white;
+                font-size: 30px;
+            }
+			div#level { @extend div; top: 50px; }
+			div#view { @extend div; top: 100px; }
+		</style>
+				
+	</head>
+	<body>
+		<script src="js/pro.js"></script>
+        
+        <div id='level'> Score 0 </div>
+        <div id='view'> Perspective View </div>
+		
+		<script>
+			// const
+			var PI = Math.PI
+			var RIGHT = 0
+			var UP = 1
+			var LEFT = 2
+			var DOWN = 3
+			var t = 0 		// time
+			var lev = 1		// level
+            var t_step = 20 // time between 2 steps
+			
+			// ground and background
+			var groundX = 10
+			var groundY = 0.4
+			var groundZ = 10
+			
+			// snake measures
+			var segLen = 1
+			var segRad = (0.9*segLen)/2 //0.4
+			var muzzleRad = segLen/5 	//0.2
+			
+			// movement's variables
+			var step = 1
+			var view = 0 // 0:perspective 1:above 2:POV
+            var bodyPos = [[-groundX/2+2.5,0.5],[-groundX/2+1.5,0.5],[-groundX/2+0.5,0.5]]
+			var dir = RIGHT
+            var prevDir = RIGHT
+            var dirBuffer = []
+            var turnList = [0,0,0] // -1:R, 0:-, 1:L
+			
+			// apple measures
+			var appleRadius = segLen/8.5 	//0.12
+			var appleTube = segLen/4.5		//0.22 (>appleRadius)
+			
+			var sunPos = { x: 3, y: 8, z: 0 }
+			var moonPos = { x: -5, y: 5, z: 2 }
+			
+			var inGame = true
+			var scene = new THREE.Scene()
+			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
+
+			var renderer = new THREE.WebGLRenderer()
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMapSoft = true;
+			renderer.setSize( window.innerWidth, window.innerHeight )
+			document.body.appendChild( renderer.domElement )
+            
+			// materials
+            var c_green_grass = new THREE.MeshPhongMaterial({color:0x507500})
+			var c_green_grass_texture = new THREE.MeshPhongMaterial( {color: 0xefefef, map: THREE.ImageUtils.loadTexture( 'res/grass.jpg')} )
+			var c_black = new THREE.MeshPhongMaterial({color:0x000000})
+			var c_white = new THREE.MeshPhongMaterial({color:0xefefef})
+			var c_green_skin = new THREE.MeshPhongMaterial({color:0x00f000, map: THREE.ImageUtils.loadTexture( "res/seamless_skin2.jpg" )})
+			var c_red_dark = new THREE.MeshPhongMaterial({color:0xa00000})
+			var c_pink = new THREE.MeshPhongMaterial({color:0xc05050})
+            var skins = [
+                new THREE.MeshPhongMaterial({color:0x00f000, map: THREE.ImageUtils.loadTexture( "res/seamless_skin3.jpg" )}),
+                new THREE.MeshPhongMaterial({color:0x00f000, map: THREE.ImageUtils.loadTexture( "res/seamless_skin4.jpg" )}),
+                new THREE.MeshPhongMaterial({color:0x00f000, map: THREE.ImageUtils.loadTexture( "res/seamless_skin5.jpg" )}),
+                new THREE.MeshPhongMaterial({color:0x00f000, map: THREE.ImageUtils.loadTexture( "res/seamless_skin6.jpg" )})
+            ]
+			var c_apple = new THREE.MeshPhongMaterial( {color: 0xe01000} )
+			var c_brown = new THREE.MeshPhongMaterial( {color: 0x6B4423} )
+            
+			var c_sun = new THREE.MeshBasicMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'res/sun_bright_texture.jpg')} )
+			var c_moon = new THREE.MeshPhongMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'res/moon_texture.jpg')} )
+            
+            /** SETTING PANEL **/
+            var text_level = document.getElementById('level')
+            var text_view = document.getElementById('view')
+            
+			
+			// OBJECTS
+			//var PIVOT = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_white )
+			var PIVOT = new THREE.Object3D()
+			PIVOT.position.y = -segLen
+			var CYL = new THREE.Mesh( new THREE.CylinderGeometry( segRad-0.05, segRad, segLen, 32 ), c_green_skin )
+            CYL.castShadow = true
+            CYL.receiveShadow = true
+			var TOR = new THREE.Mesh( new THREE.TorusGeometry( 1/2, segRad, 32, 96, PI/2 ), c_green_skin )
+            TOR.position.y = -segLen/2
+            TOR.castShadow = true
+            TOR.receiveShadow = true
+			var TAIL = new THREE.Mesh( new THREE.ConeGeometry( segRad, segLen, 32 ), c_green_skin )
+			TAIL.rotation.z = PI
+            TAIL.castShadow = true
+            TAIL.receiveShadow = true
+            
+            var cloneCYL = function() {
+                var ret = CYL.clone()
+                ret.material = skins[ Math.floor(4*Math.random()) ]
+                ret.material.needsUpdate = true;
+                return ret
+            }
+            var pivotList = [ PIVOT.clone(), PIVOT.clone() ]    // skeleton
+            var bodySegList = [ cloneCYL(), cloneCYL() ]        // straight seg
+            var bodyCurList = [ TOR.clone(), TOR.clone() ]      // curved seg
+            var suppSegList = [ cloneCYL(), cloneCYL() ]        // support straight seg (for animated curve)
+            var suppSegChin = cloneCYL()                        // support straight seg (for chin before curve)
+            var suppCurList = [ ]                               // support curved seg (for animated tail curve)
+            for (var i=1; i<=10; i++) {
+                var supp_tor = new THREE.Mesh( new THREE.TorusGeometry( 1/2, segRad, 32, 96, i*PI/20 ), c_green_skin )
+                supp_tor.position.y = -segLen/2
+                supp_tor.castShadow = true
+                supp_tor.receiveShadow = true
+                suppCurList.unshift( supp_tor )
+            }
+            
+            /** SKY **/
+            var pivotBG = new THREE.Object3D()
+            var width = groundX/2
+            var sectors = 16
+            //var radius =  width/2 // 4 lati
+            //var radius = (Math.sqrt(2)+1)*width/2 // 8 lati
+            var radius = 2.51*width // 16 lati
+            var geometry = new THREE.BoxGeometry(width,2*groundX,0.5)
+            for (var i=0; i<sectors; i++) {
+                var side = new THREE.Mesh( geometry,
+                    new THREE.MeshBasicMaterial( {color: 0xffffff, 
+                    map: THREE.ImageUtils.loadTexture( 'res/milky_low'+(i%4)+'.jpg' )} ) ) //'_texture.jpg'
+                side.position.set( radius*Math.sin(i*PI*2/sectors), 2, -radius*Math.cos(i*PI*2/sectors) )
+                side.rotation.y = -i*PI*2/sectors
+                pivotBG.add( side ) // pivotBG -> child 0..sectors-1
+            }
+            scene.add( pivotBG ) // scene -> child 0
+			
+			/** GROUND **/
+            var geometry = new THREE.BoxGeometry(groundX,groundY,groundZ)
+			var ground = new THREE.Mesh(geometry, c_green_grass)
+            ground.castShadow = true
+            ground.receiveShadow = true
+			var mud = new THREE.Mesh(geometry, c_brown)
+			mud.position.y = - groundY
+			var gridHelper = new THREE.GridHelper( 10, 10, c_black, c_black);
+			gridHelper.position.y = groundY/2 + 0.01
+			ground.add( gridHelper ) // ground -> child 0
+			ground.add( mud ) 
+			scene.add(ground)
+            
+            /** GRASS **/
+            var geometry = new THREE.PlaneGeometry(groundX,groundZ,299,299)
+            for (var i = 0; i < geometry.vertices.length; i++) {
+                if ( i%30==0 || parseInt(i/300)%30==0 ) geometry.vertices[i].z = 0 // grid
+                else geometry.vertices[i].z = Math.random()/2
+            }
+            var grass = new THREE.Mesh(geometry, c_green_grass_texture)
+            grass.castShadow = true
+            grass.receiveShadow = true
+            grass.rotation.x = -PI/2
+            ground.add(grass)
+			
+			/** SNAKE **/
+			//var pivotSnake = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
+			var pivotSnake = new THREE.Object3D()
+			pivotSnake.position.set( bodyPos[0][0], segLen/2, bodyPos[0][1] )
+			pivotSnake.rotation.z = -PI/2
+			ground.add(pivotSnake) 
+			
+            /** HEAD **/
+            // Chin
+			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, 0, PI)
+			var chin = new THREE.Mesh( geometry, c_green_skin )
+            chin.castShadow = true
+			pivotSnake.add(chin) 
+            
+			// centre of Head motion
+			var pivotHead = new THREE.Object3D()
+			pivotHead.position.y = -segLen/2
+			chin.add(pivotHead)	// chin -> child 0	
+			
+			// Head
+			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, PI, PI)
+			var head = new THREE.Mesh( geometry, c_green_skin )
+			head.position.y = segLen/2
+            head.castShadow = true
+			pivotHead.add(head)
+			
+			// Mouth (Chin + Head)
+			var line = new THREE.Shape()
+			line.moveTo( -segRad, -segLen/2 )
+			line.lineTo( -muzzleRad, segLen/2 )
+			line.lineTo( muzzleRad, segLen/2 )
+			line.lineTo( segRad, -segLen/2)
+			line.lineTo( -segRad, -segLen/2 )
+			var extrudeSettings = { depth: -0.01, bevelEnabled: false}
+			var geometry = new THREE.ExtrudeGeometry( line, extrudeSettings )
+			var mouth_head = new THREE.Mesh( geometry, c_red_dark )
+			var mouth_chin = new THREE.Mesh( geometry, c_red_dark )
+			mouth_head.rotation.y = PI/2
+			mouth_chin.rotation.y = PI/2
+            mouth_head.castShadow = true
+            mouth_chin.receiveShadow = true
+			head.add(mouth_head) // head -> child 0
+			chin.add(mouth_chin) // chin -> child 1
+			
+			// Tongue
+			var line = new THREE.Shape()
+			line.moveTo( -muzzleRad/2, -segLen/2 )
+			line.lineTo( -muzzleRad/2, 0 )
+			line.lineTo( muzzleRad/2, 0 )
+			line.lineTo( muzzleRad/2, -segLen/2 )
+			line.lineTo( -muzzleRad/2, -segLen/2 )
+			var extrudeSettings = { depth: 0.05, bevelEnabled: false}
+			var geometry = new THREE.ExtrudeGeometry( line, extrudeSettings )
+			var back_tongue = new THREE.Mesh( geometry, c_pink )
+			back_tongue.rotation.y = PI/2
+			back_tongue.position.x = -0.01
+			chin.add(back_tongue) // chin -> child 2
+			var line = new THREE.Shape()
+			line.moveTo( -muzzleRad/2, 0 )
+			line.lineTo( -muzzleRad/2, segLen/2 )
+			line.lineTo( -muzzleRad, segLen )
+			line.lineTo( 0, 3*segLen/4 )
+			line.lineTo( muzzleRad, segLen )
+			line.lineTo( muzzleRad/2, segLen/2 )
+			line.lineTo( muzzleRad/2, 0 )
+			line.lineTo( -muzzleRad/2, 0 )
+			var extrudeSettings = { depth: 0.05, bevelEnabled: false}
+			var geometry = new THREE.ExtrudeGeometry( line, extrudeSettings )
+			var tongue = new THREE.Mesh( geometry, c_pink )
+            tongue.receiveShadow = true
+            tongue.castShadow = true
+			tongue.rotation.y = PI/2
+			tongue.position.x = -0.01
+			chin.add(tongue)
+			
+			// Eyes
+			var geometry = new THREE.SphereGeometry (segRad/4, 16, 16)
+			var eyeR = new THREE.Mesh( geometry, c_white )
+			eyeR.position.set(-segRad/2,0,segRad/2)
+			head.add(eyeR)
+			var eyeL = new THREE.Mesh( geometry, c_white )
+			eyeL.position.set(-segRad/2,0,-segRad/2)
+			head.add(eyeL)
+			
+            /** BODY **/
+            pivotSnake.add( pivotList[0] )
+            pivotList[0].add( bodySegList[0] )
+            
+            /** TAIL **/
+            pivotList[0].add( pivotList[1] )
+            //var tail_LCM = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
+            var tail_LCM = new THREE.Object3D()
+            tail_LCM.position.set(0,segLen/2,-segLen/2)
+            //var tail_RCM = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_moon )
+            var tail_RCM = new THREE.Object3D()
+            tail_RCM.position.set(0,0,segLen)
+            
+            pivotList[1].add( tail_LCM )
+            tail_LCM.add( tail_RCM )
+            TAIL.position.set(0,-segLen/2,-segLen/2)
+            tail_RCM.add( TAIL )
+            
+            //pivotList[1].add( TAIL )
+            
+			// levelUP
+			var levelUP = function () {
+                // create a new level in the objects lists
+                pivotList.push( PIVOT.clone() )
+                bodySegList.push( cloneCYL() )
+                bodyCurList.push( TOR.clone() )
+                suppSegList.push( cloneCYL() )
+				// replace tail with the body on actual seg
+				pivotList[ lev ].remove( tail_LCM ) //TAIL )
+				pivotList[ lev ].add( bodySegList[lev] )
+				// go to the next level !
+				pivotList[ lev ].add( pivotList[++lev] )
+				pivotList[ lev ].add( tail_LCM ) //TAIL )
+                // compute the new t_steps
+                t_step = Math.max(10, 20-Math.floor(lev/5))
+                timer = Math.min(timer, t_step)
+				console.log("levelUP >",lev)
+                // setting panel
+                text_level.innerHTML = 'Score '+(lev-1);
+                var hex_col = parseInt((t_step-10)*25.5).toString(16)
+                if (hex_col.length == 1) hex_col = '0'+hex_col
+                text_level.style.color = '#ff'+hex_col+hex_col;
+			}
+	
+			// return if the obj is in an illegal position
+			var invalidPos = function (obj) {
+				// out of world
+				if (Math.abs(obj.position.x) > groundX/2 ||
+					Math.abs(obj.position.z) > groundZ/2 ) {
+					console.log("out of world")
+					return true
+				}
+				// on snake
+                for (var p=0; p<bodyPos.length-1; p++) {
+                    if ( obj.position.x == bodyPos[p][0] &&
+                         obj.position.z == bodyPos[p][1] ) {
+						console.log("on snake's body")
+						return true
+					}
+                }
+				return false
+			}
+			
+			// Random apple position
+			var randPosApple = function (){
+				do { // find a possible new position
+					apple.position.x = Math.round((Math.random() * (groundX-1)) - groundX/2) + 0.5
+					apple.position.z = Math.round((Math.random() * (groundZ-1)) - groundZ/2) + 0.5
+				} while (invalidPos(apple))
+				console.log("An apple is appeared in",apple.position.x,",",apple.position.z)
+			}
+			
+            /** APPLE **/
+			var geometry = new THREE.TorusGeometry( appleRadius, appleTube, 32, 96 )
+			var apple = new THREE.Mesh( geometry, c_apple )
+			randPosApple()
+			apple.position.y = appleTube + groundY/2
+			apple.rotation.x = -PI/2
+            apple.castShadow = true
+			ground.add( apple ) // ground -> child 3
+			
+			// Petiole
+			var geometry = new THREE.ConeGeometry( 0.05, appleTube, 16 )
+			var petiole = new THREE.Mesh( geometry, c_brown )
+			petiole.rotation.x = -PI/4
+			petiole.position.z = appleTube
+			apple.add( petiole ) // apple -> child 0
+
+			/** CAMERA **/
+			var refreshCamera = function (pos) {
+				if ( view==2) { // POV
+                    text_view.innerHTML = 'Snake Point Of View'
+                    s = 1-timer/t_step
+					if ( dir==RIGHT) {
+						camera.position.set( pos.x-1+s, 2.3, pos.z )
+						camera.lookAt( pos.x+2+s, 0, pos.z )
+					}else if ( dir==LEFT ) {
+						camera.position.set( pos.x+1-s, 2.3, pos.z )
+						camera.lookAt( pos.x-2-s, 0, pos.z )
+					}else if ( dir==UP ) {
+						camera.position.set( pos.x, 2.3, pos.z+1-s )
+						camera.lookAt( pos.x, 0, pos.z-2-s )
+					}else if ( dir==DOWN ) {
+						camera.position.set( pos.x, 2.3, pos.z-1+s )
+						camera.lookAt( pos.x, 0, pos.z+2+s )
+					}
+				} else if ( view==0 ) { // perspective
+                    text_view.innerHTML = 'Perspective view'
+					camera.position.set( 0, 7, 6 )
+					camera.lookAt( 0, 0, 0 )
+				} else if ( view==1 ) { // top
+                    text_view.innerHTML = 'Top view'
+					camera.position.set( 0, 7, 0 ) 
+					camera.lookAt( 0, 0, 0 )
+				}
+			}
+			refreshCamera(view) // initial setting
+
+            /** LIGHT **/
+			// Ambient Light
+            scene.add ( new THREE.AmbientLight( c_white, 0.1 ) ) // scene -> child 2
+            // Sun
+            var pivotSun = new THREE.Object3D()
+			scene.add(pivotSun) // scene -> child 3
+			pivotSun.add( new THREE.DirectionalLight( c_sun, 1.0 ) ) // LIGHT
+			pivotSun.add( new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun ) ) // SPHERE
+            pivotSun.children[0].castShadow = true
+            pivotSun.children[0].shadow.mapSize.width = 1024
+            pivotSun.children[0].shadow.mapSize.height = 1024
+            pivotSun.children[0].shadow.camera.left = -8
+            pivotSun.children[0].shadow.camera.right = 8
+            pivotSun.children[0].shadow.camera.top = 8
+            pivotSun.children[0].shadow.camera.bottom = -8
+            // Moon
+            var pivotMoon = new THREE.Object3D()
+			scene.add(pivotMoon) // scene -> child 4
+			pivotMoon.add( new THREE.DirectionalLight( c_moon, 0.5 ) ) // LIGHT
+			pivotMoon.add( new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon ) ) // SPHERE 
+            pivotMoon.children[0].castShadow = true
+            pivotMoon.children[0].shadow.mapSize.width = 1024
+            pivotMoon.children[0].shadow.mapSize.height = 1024
+            pivotMoon.children[0].shadow.camera.left = -8;
+            pivotMoon.children[0].shadow.camera.right = 8;
+            pivotMoon.children[0].shadow.camera.top = 8;
+            pivotMoon.children[0].shadow.camera.bottom = -8;
+            
+            /** SOUND **/
+            var listener = new THREE.AudioListener()
+            camera.add( listener );
+            var sound = new THREE.Audio( listener ) //global audio source            
+            
+            var sound_base = new Audio('res/countryside.ogg')
+            sound_base.loop = true
+            sound_base.play()
+            
+            var sound_apple_bite = new Audio('res/apple_bite.ogg')
+            sound_apple_bite.loop = false
+           
+            /** KEYBOARD LISTENER **/
+            var nextMoves = []
+			document.addEventListener("keydown", onDocumentKeyDown, true)
+			function onDocumentKeyDown(event) {
+                var keyCode = event.which
+                
+                if ( keyCode>=37 && keyCode<=40) { // directional key pressed
+                    // selection of desider new direction
+                    if ( view==2 ) { // relative movement (POV)
+                        if ( keyCode==39 ) newDir = (dir+3)%4 // turn RIGHT (-1)
+                        else if ( keyCode==37) newDir = (dir+1)%4 // turn LEFT (+1)
+                    } else  // absolute movement
+                        newDir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                    
+                    // if newDir determine a curve respect lastDir there are no more than 4 direction stored in buffer
+                    var lastDir = dirBuffer.length ? dirBuffer[dirBuffer.length-1] : dir
+                    if ( Math.abs(newDir-lastDir)%2 && dirBuffer.length<4 )
+                        dirBuffer.push(newDir)
+                }
+                
+                if ( keyCode == 86 ) { // change view - v
+                    view = (view+1)%3 
+                    refreshCamera( pivotSnake.position )
+                }
+                
+                // TEST: move and levelUP
+                /*if ( keyCode>=37 && keyCode<=40 ) {
+                    dir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                    move()
+                }//*/
+                /*if ( keyCode == 13 ){ // enter
+                    //timer -= 0.1
+                    turnList.push(0)
+                    bodyPos.push(bodyPos[lev])
+                    levelUP()
+                }//*/
+			}
+			
+            /** MOVE THE PIVOT **/
+			var move = function () {
+                // reset skin position
+				moveBody(reset=true)
+                timer = t_step
+                
+                pivotSnake.position.x += dir==RIGHT ? step : (dir==LEFT ? -step : 0 )
+                pivotSnake.position.z += dir==DOWN ? step : (dir==UP ? -step : 0 )
+								
+				// add head elements to the flow lists
+                var turn = dir - prevDir
+                if (turn == 3) turn = -1 // turn to right [-1,3]
+				if (turn == -3) turn = 1 // turn to left  [1,-3]
+                turnList.unshift(turn)
+                prevDir = dir
+                
+                ret = !invalidPos(pivotSnake)
+                bodyPos.unshift([pivotSnake.position.x, pivotSnake.position.z])
+                
+                // check if it ate an apple
+				if (apple.position.x == pivotSnake.position.x &&
+					apple.position.z == pivotSnake.position.z) {
+                    if(sound_apple_bite.playing) sound_apple_bite.stop()
+                    sound_apple_bite.play()
+					levelUP()
+					randPosApple()
+				} else {
+                    turnList.pop()
+                    bodyPos.pop()
+                }
+				
+				// rotate the head (and the camera if in POV)
+				pivotSnake.rotation.y = dir * PI/2
+				
+				// rotate the rest of the body
+				for ( var i=0; i<lev; i++ ) {                
+                    if ( turnList[i] ) { // curve!
+                        pivotList[i].rotation.x = turnList[i]*PI/2      // rotate the pivot
+						pivotList[i].remove( bodySegList[i] )           // remove Seg (cyl)
+						bodyCurList[i].rotation.y = -turnList[i]*PI/2
+						bodyCurList[i].position.z = -turnList[i]*segLen/2
+						pivotList[i].add( bodyCurList[i] )              // add Curve (tor)
+                    } else if ( turnList[i+1] ) { // before it was a Tor
+						pivotList[i].rotation.x = 0                     // rotate back the pivot
+						pivotList[i].remove( bodyCurList[i] )           // remove Curve
+						pivotList[i].add( bodySegList[i] )              // add Seg
+					}
+				}
+				return ret
+			}
+            
+            /** MOVE THE SKIN (during the t_steps) **/
+            var prev_ind
+            var moveBody = function (reset=false) {
+                // timer = t_step -> 0
+                // s     = 0      -> 1
+                s = reset ? 1 : 1-timer/t_step
+                
+                // INITIAL SETTING: ADD an extra straight seg before each TOR
+                if ( s==0 ) { 
+                    if (turnList[0]) chin.add( suppSegChin )
+                    for (var i=0; i<lev-1; i++) 
+                        if (!turnList[i] && turnList[i+1]) pivotList[i].add( suppSegList[i] )
+                    if(turnList[lev-1]) {
+                        pivotList[lev-1].remove( bodyCurList[lev-1] )
+                        prev_ind = 0
+						suppCurList[0].rotation.y = -turnList[lev-1]*PI/2
+						suppCurList[0].position.z = -turnList[lev-1]*segLen/2
+                        pivotList[lev-1].add( suppCurList[0] )
+                    }
+                }        
+                // RESET SETTING
+                else if (s>=1) {
+                    chin.position.y = 0
+                    if(turnList[0]) chin.remove( suppSegChin )
+                    for(var i=0; i<lev; i++) {
+                        if (turnList[i+1]) {pivotList[i].remove( suppSegList[i] )}
+                        bodySegList[i].position.y = 0
+                        bodySegList[i].scale.y = 1
+                    }
+                    if(turnList[lev-1]) {
+                        pivotList[lev-1].remove( suppCurList[prev_ind] )
+                        pivotList[lev-1].add( bodyCurList[lev-1] )
+                        tail_LCM.rotation.x = 0
+                        tail_RCM.rotation.x = 0
+                    }
+                    tail_LCM.position.y = segLen/2
+                }
+                // MOTION
+                else {
+                    chin.position.y = s
+                    if (turnList[0]) { // chin before TOR : expand extra seg
+                        suppSegChin.scale.y = s
+                        suppSegChin.position.y = -segLen/2 -s/2
+                    }
+                    for (var i=0; i<lev; i++) {
+                        if (turnList[i-1]) { // after a TOR : collapse
+                            bodySegList[i].position.y = s/2
+                            bodySegList[i].scale.y = 1-s
+                        } else bodySegList[i].position.y = s
+                    }
+                    if ( turnList[lev-1] ){
+                        var ind = Math.floor(s*10)
+                        //var ind = Math.min( 1, Math.max( 0, Math.floor(s*10)))
+                        if (ind != prev_ind) {
+                            // tor
+                            pivotList[lev-1].remove( suppCurList[prev_ind] )
+                            suppCurList[ind].rotation.y = -turnList[lev-1]*PI/2
+                            suppCurList[ind].rotation.x = -turnList[lev-1]*ind*PI/20
+                            suppCurList[ind].position.z = -turnList[lev-1]*segLen/2
+                            pivotList[lev-1].add( suppCurList[ind] )
+                            // tail
+                            if(turnList[lev-1]==1) tail_LCM.rotation.x = -ind*PI/20
+                            else tail_RCM.rotation.x = ind*PI/20
+                            
+                            prev_ind = ind
+                        }
+                    } else {
+                        tail_LCM.position.y = segLen/2 + s
+                    }
+                }
+            }
+			
+            var timer = t_step
+            var redInd = redPos = 0
+			var game = function () {
+				requestAnimationFrame( game )
+                if (inGame) {
+                    if ( view==2 ) refreshCamera( pivotSnake.position )
+                    
+                    /* timer
+                     * 0        ----------
+                     *                                          
+                     *          turn in current line         -- ╔═► -
+                     *                                          ║
+                     * t_step/2 ----------
+                     *          wait to turn in current line -- ┌► --
+                     * t_step/4 ----------                      ║
+                     *          turn in previous line        -- ┬ ---
+                     * t_step   ----------                      ╠═►
+                    **/
+                    
+                    if (timer > t_step/2 && dirBuffer.length) {
+                        dir = dirBuffer.shift()
+                        inGame = move()
+                    }
+                    
+                    if (timer > t_step/4 && dirBuffer.length) {
+                        inGame = move()
+                        dir = dirBuffer.shift()
+                        inGame &= move()
+                    }
+                    
+                    // end of cell
+                    if (timer <= 0) inGame = move()
+                   
+                    if (inGame) moveBody()
+                    pivotHead.rotation.z = PI/6*Math.sin(t/10) + PI/6 // mouth
+                    tongue.position.y = segLen/2*Math.sin(t/10) - segLen/2 // tongue
+                    
+                } else if ( t % 2 == 0 ) { // gameover animation
+                    // green current seg
+                    redInd = redPos++%pivotList.length
+                    if ( turnList[redInd] ) bodyCurList[redInd].material = c_green_skin
+                    else bodySegList[redInd].material = c_green_skin
+                    // red next seg
+                    redInd = redPos%pivotList.length
+                    if ( turnList[redInd] ) bodyCurList[redInd].material = c_red_dark
+                    else bodySegList[redInd].material = c_red_dark
+                }
+                
+                // apple motion
+				apple.position.y = Math.sin(t/20)/10+0.1 + appleTube+groundY/2
+				apple.rotation.z += 0.05
+                
+                // background rotation
+                pivotBG.rotation.y += 0.0001                
+				
+				// light
+				sunPos.y = 8*Math.cos(t/200)
+				sunPos.z = -8*Math.sin(t/200)
+				pivotSun.position.set( sunPos.x, sunPos.y, sunPos.z )
+				
+                moonPos.y = 8*Math.cos(t/220 + PI)
+				moonPos.z = 8*Math.sin(t/220)
+				pivotMoon.position.set( moonPos.x, moonPos.y, moonPos.z );
+				
+				//renderer.render( backgroundScene, backgroundCamera )
+				renderer.render( scene, camera )
+                timer -= 1
+                t += 1
+			}
+			
+			game()
+		</script>
+	</body>
+</html>
+
+<!-- HIERARCHICAL TREE 
+                     /  side0                                                                    /  moouth_head
+         /  pivotBG |   ...                                          /  pivot_head  <   head    |   eyeR
+        |            \  side16                                      |                            \  eyeL
+        |                                            /  chin        |   mouth_chin
+        |            /  GridHelper                  |               |   back_tongue 
+        |   ground  |   mud                         |                \  tongue 
+        |           |   pivotSnake  ----------------|                                            /  body_pivot(lev) <   body_pivot(lev+1)
+scene   |            \  apple       <   petiole     |                                /  ...     |
+        |                                           |                /  body_pivot1 |            \  tail
+        |   ambientLight                             \  body_pivot0 |                \  body_tor
+        |                                                            \  body_cyl
+        |   pivotSun    /   light                       
+        |               \   sphere                                         
+        |           
+         \  pivotMoon   /   light
+                        \   sphere
+-->
