@@ -20,5 +20,6 @@ In POV the snake can turn left or right, so only the lateral directional arrows 
 **Coming soon**
 
 - FIX minor bugs with in the shadows
-- ADD a main menÃ¹
+- FIX snake's skin motion
+- ADD a main menù
 - ADD a game over screen
