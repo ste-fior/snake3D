@@ -1,9 +1,6 @@
 In local cloned repository
-SETUP: 
-	git remote add upstream https://github.com:USER/PROJECT.git
-PUSH TO GITHUB:
-	git push upstream master
-	git push --tags upstream
+SETUP :	git remote add upstream https://github.com:USER/PROJECT.git
+PUSH  :	git push upstream master
 
 SOURCES:
 !! In these website the repository is completly moved ti GitHub
