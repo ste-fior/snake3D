@@ -1,0 +1,13 @@
+In local cloned repository
+SETUP: 
+	git remote add upstream https://github.com:USER/PROJECT.git
+PUSH TO GITHUB:
+	git push upstream master
+	git push --tags upstream
+
+SOURCES:
+!! In these website the repository is completly moved ti GitHub
+!! So the last step is to delete the BitBucket repository
+!! And we don't want to do it :D
+http://www.blackdogfoundry.com/blog/moving-repository-from-bitbucket-to-github/
+https://medium.com/collaborne-engineering/how-to-migrate-a-private-repository-from-bitbucket-to-github-6cddedd5d73
