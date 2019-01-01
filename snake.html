@@ -14,24 +14,46 @@
             }
             div {
                 position: absolute;
-                margin: 10px;
                 z-index: 1;
                 font-family: 'Bangers', cursive;
                 color: white;
                 font-size: 30px;
             }
-			div#level { @extend div; top: 50px; }
-			div#view { @extend div; top: 100px; }
+            div#div_info { @extend div;
+                margin: 30px;
+            }
+			.center { @extend div;
+                width: 100%;
+                text-align: center;
+            }
+            bold {
+                text-shadow: 2px 0 0 #fff, -2px 0 0 #fff, 0 2px 0 #fff, 0 -2px 0 #fff, 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+                color: red;
+            }
 		</style>
 				
 	</head>
 	<body>
 		<script src="js/pro.js"></script>
-        
-        <div id='level'> Score 0 </div>
-        <div id='view'> Perspective View </div>
+        <div id='div_info'> 
+            <span id='txt_level'>Score 0</span><br><br>
+            <span id='txt_view'>Perspective View</span>
+        </div>
+        <div id='div_start' class='center'> 
+            <font size=20>Snake 3D</font><br><br>
+            Press <bold>enter</bold> to start the game<br>
+            Press the <bold>arrows</bold> to move the snake<br>
+            Press <bold>V</bold> to change the view<br>
+        </div>
+        <div id='div_end' class='center'> 
+            <font size=20>Game Over</font><br><br>
+            Final score: <span id='txt_end'>0</span><br>
+            Press <bold>enter</bold> to reeturn to the main menu<br>
+        </div>
 		
 		<script>
+            // border: 3px dashed #1c87c9; - dashed box for css div
+        
 			// const
 			var PI = Math.PI
 			var RIGHT = 0
@@ -68,7 +90,7 @@
 			var sunPos = { x: 3, y: 8, z: 0 }
 			var moonPos = { x: -5, y: 5, z: 2 }
 			
-			var inGame = true
+			var STATE = 0 // 0:menu, 1:game, 2: end
 			var scene = new THREE.Scene()
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
 
@@ -98,10 +120,15 @@
 			var c_sun = new THREE.MeshBasicMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'res/sun_bright_texture.jpg')} )
 			var c_moon = new THREE.MeshPhongMaterial( {color: 0xffffff, map: THREE.ImageUtils.loadTexture( 'res/moon_texture.jpg')} )
             
-            /** SETTING PANEL **/
-            var text_level = document.getElementById('level')
-            var text_view = document.getElementById('view')
-            
+            /** SIGN **/
+            var div_info =  document.getElementById('div_info')
+            div_info.style.visibility = 'hidden'
+            var txt_level = document.getElementById('txt_level')
+            var txt_view = document.getElementById('txt_view')
+            var div_start = document.getElementById('div_start')
+            var div_end = document.getElementById('div_end')
+            div_end.style.visibility = 'hidden'
+            var txt_final = document.getElementById('txt_end')
 			
 			// OBJECTS
 			//var PIVOT = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_white )
@@ -185,7 +212,6 @@
 			/** SNAKE **/
 			//var pivotSnake = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
 			var pivotSnake = new THREE.Object3D()
-			pivotSnake.position.set( bodyPos[0][0], segLen/2, bodyPos[0][1] )
 			pivotSnake.rotation.z = -PI/2
 			ground.add(pivotSnake) 
 			
@@ -265,26 +291,14 @@
 			var eyeL = new THREE.Mesh( geometry, c_white )
 			eyeL.position.set(-segRad/2,0,-segRad/2)
 			head.add(eyeL)
-			
-            /** BODY **/
-            pivotSnake.add( pivotList[0] )
-            pivotList[0].add( bodySegList[0] )
             
-            /** TAIL **/
-            pivotList[0].add( pivotList[1] )
-            //var tail_LCM = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
+            /** TAIL (only creation) **/
+            var tail_LCM = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_sun )
             var tail_LCM = new THREE.Object3D()
             tail_LCM.position.set(0,segLen/2,-segLen/2)
             //var tail_RCM = new THREE.Mesh( new THREE.SphereGeometry (segRad/4, 16, 16), c_moon )
             var tail_RCM = new THREE.Object3D()
             tail_RCM.position.set(0,0,segLen)
-            
-            pivotList[1].add( tail_LCM )
-            tail_LCM.add( tail_RCM )
-            TAIL.position.set(0,-segLen/2,-segLen/2)
-            tail_RCM.add( TAIL )
-            
-            //pivotList[1].add( TAIL )
             
 			// levelUP
 			var levelUP = function () {
@@ -304,10 +318,10 @@
                 timer = Math.min(timer, t_step)
 				console.log("levelUP >",lev)
                 // setting panel
-                text_level.innerHTML = 'Score '+(lev-1);
+                txt_level.innerHTML = 'Score '+(lev-1);
                 var hex_col = parseInt((t_step-10)*25.5).toString(16)
                 if (hex_col.length == 1) hex_col = '0'+hex_col
-                text_level.style.color = '#ff'+hex_col+hex_col;
+                txt_level.style.color = '#ff'+hex_col+hex_col;
 			}
 	
 			// return if the obj is in an illegal position
@@ -357,7 +371,7 @@
 			/** CAMERA **/
 			var refreshCamera = function (pos) {
 				if ( view==2) { // POV
-                    text_view.innerHTML = 'Snake Point Of View'
+                    txt_view.innerHTML = 'Snake Point Of View'
                     s = 1-timer/t_step
 					if ( dir==RIGHT) {
 						camera.position.set( pos.x-1+s, 2.3, pos.z )
@@ -373,16 +387,15 @@
 						camera.lookAt( pos.x, 0, pos.z+2+s )
 					}
 				} else if ( view==0 ) { // perspective
-                    text_view.innerHTML = 'Perspective view'
+                    txt_view.innerHTML = 'Perspective view'
 					camera.position.set( 0, 7, 6 )
 					camera.lookAt( 0, 0, 0 )
 				} else if ( view==1 ) { // top
-                    text_view.innerHTML = 'Top view'
+                    txt_view.innerHTML = 'Top view'
 					camera.position.set( 0, 7, 0 ) 
 					camera.lookAt( 0, 0, 0 )
 				}
 			}
-			refreshCamera(view) // initial setting
 
             /** LIGHT **/
 			// Ambient Light
@@ -423,6 +436,54 @@
             
             var sound_apple_bite = new Audio('res/apple_bite.ogg')
             sound_apple_bite.loop = false
+            
+            /** CHANGE STATE **/
+            var change_state = function (nextS) {
+                if (nextS == 0) { // main menu
+                    div_start.style.visibility = 'visible'
+                    div_end.style.visibility = 'hidden'
+                    
+                    //reset variables
+                    lev = 1
+                    dir = RIGHT
+                    prevDir = RIGHTdirBuffer = []
+                    turnList = [0,0,0]
+                    // remove old body
+                    if (STATE == 2) pivotSnake.remove( pivotList[0] )
+                    // reset snake position
+                    bodyPos = [[-groundX/2+2.5,0.5],[-groundX/2+1.5,0.5],[-groundX/2+0.5,0.5]]
+                    pivotSnake.position.set( bodyPos[0][0], segLen/2, bodyPos[0][1] )
+                    pivotSnake.rotation.y = 0
+                    // reset list elements
+                    pivotList = [ PIVOT.clone(), PIVOT.clone() ]    // skeleton
+                    bodySegList = [ cloneCYL(), cloneCYL() ]        // straight seg
+                    bodyCurList = [ TOR.clone(), TOR.clone() ]      // curved seg
+                    suppSegList = [ cloneCYL(), cloneCYL() ]        // support straight seg (for animated curve)
+                    // add first body segmnet
+                    pivotSnake.add( pivotList[0] )
+                    pivotList[0].add( bodySegList[0] )
+                    // add tail
+                    pivotList[0].add( pivotList[1] )
+                    pivotList[1].add( tail_LCM )
+                    tail_LCM.add( tail_RCM )
+                    TAIL.position.set(0,-segLen/2,-segLen/2)
+                    tail_RCM.add( TAIL )
+                    // reset camera
+                    view = 0
+                    refreshCamera(view)
+                } else if (nextS == 1) { // game - init snake
+                    div_info.style.visibility = 'visible'
+                    div_start.style.visibility = 'hidden'
+                    
+                } else if (nextS == 2) { // game over
+                    div_info.style.visibility = 'hidden'
+                    div_end.style.visibility = 'visible'
+                    txt_final.innerHTML =  lev-1
+                }
+                STATE = nextS
+            }
+            
+            change_state(0)
            
             /** KEYBOARD LISTENER **/
             var nextMoves = []
@@ -430,36 +491,41 @@
 			function onDocumentKeyDown(event) {
                 var keyCode = event.which
                 
-                if ( keyCode>=37 && keyCode<=40) { // directional key pressed
-                    // selection of desider new direction
-                    if ( view==2 ) { // relative movement (POV)
-                        if ( keyCode==39 ) newDir = (dir+3)%4 // turn RIGHT (-1)
-                        else if ( keyCode==37) newDir = (dir+1)%4 // turn LEFT (+1)
-                    } else  // absolute movement
-                        newDir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                if (STATE == 0) { // main menu
+                    if ( keyCode == 13 ) change_state(1) // enter - start new game
+                } else if (STATE == 1) { // game
+                    if ( keyCode>=37 && keyCode<=40) { // directional key pressed
+                        // selection of desider new direction
+                        if ( view==2 ) { // relative movement (POV)
+                            if ( keyCode==39 ) newDir = (dir+3)%4 // turn RIGHT (-1)
+                            else if ( keyCode==37) newDir = (dir+1)%4 // turn LEFT (+1)
+                        } else  // absolute movement
+                            newDir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                        
+                        // if newDir determine a curve respect lastDir there are no more than 4 direction stored in buffer
+                        var lastDir = dirBuffer.length ? dirBuffer[dirBuffer.length-1] : dir
+                        if ( Math.abs(newDir-lastDir)%2 && dirBuffer.length<4 )
+                            dirBuffer.push(newDir)
+                    }
                     
-                    // if newDir determine a curve respect lastDir there are no more than 4 direction stored in buffer
-                    var lastDir = dirBuffer.length ? dirBuffer[dirBuffer.length-1] : dir
-                    if ( Math.abs(newDir-lastDir)%2 && dirBuffer.length<4 )
-                        dirBuffer.push(newDir)
+                    if ( keyCode == 86 ) { // v - change view
+                        view = (view+1)%3 
+                        refreshCamera( pivotSnake.position )
+                    }
+                    
+                    // TEST: move and levelUP
+                    /*if ( keyCode>=37 && keyCode<=40 ) {
+                        dir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                        move()
+                    }//*/
+                    /*if ( keyCode == 13 ) {
+                        /*turnList.push(0)
+                        bodyPos.push(bodyPos[lev])
+                        levelUP()
+                    }//*/
+                } else if (STATE == 2) { // game over
+                    if ( keyCode == 13 ) change_state(0) // enter - to main menu
                 }
-                
-                if ( keyCode == 86 ) { // change view - v
-                    view = (view+1)%3 
-                    refreshCamera( pivotSnake.position )
-                }
-                
-                // TEST: move and levelUP
-                /*if ( keyCode>=37 && keyCode<=40 ) {
-                    dir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
-                    move()
-                }//*/
-                /*if ( keyCode == 13 ){ // enter
-                    //timer -= 0.1
-                    turnList.push(0)
-                    bodyPos.push(bodyPos[lev])
-                    levelUP()
-                }//*/
 			}
 			
             /** MOVE THE PIVOT **/
@@ -587,9 +653,10 @@
 			
             var timer = t_step
             var redInd = redPos = 0
+            var inGame;
 			var game = function () {
 				requestAnimationFrame( game )
-                if (inGame) {
+                if (STATE == 1) { // game
                     if ( view==2 ) refreshCamera( pivotSnake.position )
                     
                     /* timer
@@ -603,34 +670,34 @@
                      *          turn in previous line        -- ┬ ---
                      * t_step   ----------                      ╠═►
                     **/
-                    
+                    inGame = true
                     if (timer > t_step/2 && dirBuffer.length) {
                         dir = dirBuffer.shift()
                         inGame = move()
                     }
-                    
                     if (timer > t_step/4 && dirBuffer.length) {
                         inGame = move()
                         dir = dirBuffer.shift()
-                        inGame &= move()
+                        if (inGame) inGame = move()
                     }
-                    
-                    // end of cell
                     if (timer <= 0) inGame = move()
                    
                     if (inGame) moveBody()
+                    else change_state(2)
                     pivotHead.rotation.z = PI/6*Math.sin(t/10) + PI/6 // mouth
                     tongue.position.y = segLen/2*Math.sin(t/10) - segLen/2 // tongue
                     
-                } else if ( t % 2 == 0 ) { // gameover animation
-                    // green current seg
-                    redInd = redPos++%pivotList.length
-                    if ( turnList[redInd] ) bodyCurList[redInd].material = c_green_skin
-                    else bodySegList[redInd].material = c_green_skin
-                    // red next seg
-                    redInd = redPos%pivotList.length
-                    if ( turnList[redInd] ) bodyCurList[redInd].material = c_red_dark
-                    else bodySegList[redInd].material = c_red_dark
+                } else if (STATE == 2) {
+                    if ( t % 2 == 0 ) { // gameover animation
+                        // green current seg
+                        redInd = redPos++%pivotList.length
+                        if ( turnList[redInd] ) bodyCurList[redInd].material = c_green_skin
+                        else bodySegList[redInd].material = c_green_skin
+                        // red next seg
+                        redInd = redPos%pivotList.length
+                        if ( turnList[redInd] ) bodyCurList[redInd].material = c_red_dark
+                        else bodySegList[redInd].material = c_red_dark
+                    }
                 }
                 
                 // apple motion
