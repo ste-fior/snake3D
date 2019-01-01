@@ -359,6 +359,7 @@
 			apple.position.y = appleTube + groundY/2
 			apple.rotation.x = -PI/2
             apple.castShadow = true
+            apple.receiveShadow = true
 			ground.add( apple ) // ground -> child 3
 			
 			// Petiole
@@ -430,7 +431,7 @@
             camera.add( listener );
             var sound = new THREE.Audio( listener ) //global audio source            
             
-            var sound_base = new Audio('res/countryside.ogg')
+            var sound_base = new Audio('res/curious.ogg')
             sound_base.loop = true
             sound_base.play()
             
