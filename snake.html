@@ -42,8 +42,9 @@
         <div id='div_start' class='center'> 
             <font size=20>Snake 3D</font><br><br>
             Press <bold>enter</bold> to start the game<br>
-            Press the <bold>arrows</bold> to move the snake<br>
+            Use the <bold>arrows</bold> to move the snake<br>
             Press <bold>V</bold> to change the view<br>
+            Press <bold>M</bold> to switch the music<br>
         </div>
         <div id='div_end' class='center'> 
             <font size=20>Game Over</font><br><br>
@@ -93,6 +94,7 @@
 			var STATE = 0 // 0:menu, 1:game, 2: end
 			var scene = new THREE.Scene()
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 )
+            var mode_music = true
 
 			var renderer = new THREE.WebGLRenderer()
             renderer.shadowMap.enabled = true;
@@ -435,8 +437,11 @@
             sound_base.loop = true
             sound_base.play()
             
-            var sound_apple_bite = new Audio('res/apple_bite.ogg')
+            var sound_apple_bite = new Audio('res/apple_bite_2.ogg')
             sound_apple_bite.loop = false
+            
+            var sound_death = new Audio('res/pacman_death.ogg')
+            sound_death.loop = false
             
             /** CHANGE STATE **/
             var change_state = function (nextS) {
@@ -479,6 +484,7 @@
                 } else if (nextS == 2) { // game over
                     div_info.style.visibility = 'hidden'
                     div_end.style.visibility = 'visible'
+                    sound_death.play()
                     txt_final.innerHTML =  lev-1
                 }
                 STATE = nextS
@@ -491,6 +497,7 @@
 			document.addEventListener("keydown", onDocumentKeyDown, true)
 			function onDocumentKeyDown(event) {
                 var keyCode = event.which
+                //console.log(keyCode)
                 
                 if (STATE == 0) { // main menu
                     if ( keyCode == 13 ) change_state(1) // enter - start new game
@@ -525,7 +532,13 @@
                         levelUP()
                     }//*/
                 } else if (STATE == 2) { // game over
-                    if ( keyCode == 13 ) change_state(0) // enter - to main menu
+                    if (keyCode == 13) change_state(0) // enter - to main menu
+                }
+                
+                if (keyCode == 77) { // m - music ON/OFF
+                    if (mode_music) sound_base.pause()
+                    else sound_base.play()
+                    mode_music = !mode_music
                 }
 			}
 			
