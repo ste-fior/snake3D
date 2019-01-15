@@ -16,8 +16,9 @@
                 position: absolute;
                 z-index: 1;
                 font-family: 'Bangers', cursive;
-                color: white;
                 font-size: 30px;
+                color: white;
+                text-shadow: 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
             }
             div#div_info { @extend div;
                 margin: 30px;
@@ -222,18 +223,20 @@
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, 0, PI)
 			var chin = new THREE.Mesh( geometry, c_green_skin )
             chin.castShadow = true
+            chin.receiveShadow = true
 			pivotSnake.add(chin) 
             
 			// centre of Head motion
 			var pivotHead = new THREE.Object3D()
 			pivotHead.position.y = -segLen/2
-			chin.add(pivotHead)	// chin -> child 0	
+			chin.add(pivotHead)	
 			
 			// Head
 			var geometry = new THREE.CylinderGeometry( muzzleRad, segRad, segLen, 32, 1, false, PI, PI)
 			var head = new THREE.Mesh( geometry, c_green_skin )
 			head.position.y = segLen/2
             head.castShadow = true
+            head.receiveShadow = true
 			pivotHead.add(head)
 			
 			// Mouth (Chin + Head)
@@ -250,6 +253,8 @@
 			mouth_head.rotation.y = PI/2
 			mouth_chin.rotation.y = PI/2
             mouth_head.castShadow = true
+            //mouth_chin.castShadow = true
+            mouth_head.receiveShadow = true
             mouth_chin.receiveShadow = true
 			head.add(mouth_head) // head -> child 0
 			chin.add(mouth_chin) // chin -> child 1
@@ -266,7 +271,9 @@
 			var back_tongue = new THREE.Mesh( geometry, c_pink )
 			back_tongue.rotation.y = PI/2
 			back_tongue.position.x = -0.01
-			chin.add(back_tongue) // chin -> child 2
+            back_tongue.castShadow = true
+            back_tongue.receiveShadow = true
+			chin.add(back_tongue)
 			var line = new THREE.Shape()
 			line.moveTo( -muzzleRad/2, 0 )
 			line.lineTo( -muzzleRad/2, segLen/2 )
@@ -279,8 +286,8 @@
 			var extrudeSettings = { depth: 0.05, bevelEnabled: false}
 			var geometry = new THREE.ExtrudeGeometry( line, extrudeSettings )
 			var tongue = new THREE.Mesh( geometry, c_pink )
-            tongue.receiveShadow = true
             tongue.castShadow = true
+            tongue.receiveShadow = true
 			tongue.rotation.y = PI/2
 			tongue.position.x = -0.01
 			chin.add(tongue)
@@ -289,9 +296,13 @@
 			var geometry = new THREE.SphereGeometry (segRad/4, 16, 16)
 			var eyeR = new THREE.Mesh( geometry, c_white )
 			eyeR.position.set(-segRad/2,0,segRad/2)
+            eyeR.castShadow = true
+            eyeR.receiveShadow = true
 			head.add(eyeR)
 			var eyeL = new THREE.Mesh( geometry, c_white )
 			eyeL.position.set(-segRad/2,0,-segRad/2)
+            eyeL.castShadow = true
+            eyeL.receiveShadow = true
 			head.add(eyeL)
             
             /** TAIL (only creation) **/
@@ -369,6 +380,8 @@
 			var petiole = new THREE.Mesh( geometry, c_brown )
 			petiole.rotation.x = -PI/4
 			petiole.position.z = appleTube
+            petiole.castShadow = true
+            petiole.receiveShadow = true
 			apple.add( petiole ) // apple -> child 0
 
 			/** CAMERA **/
@@ -402,10 +415,10 @@
 
             /** LIGHT **/
 			// Ambient Light
-            scene.add ( new THREE.AmbientLight( c_white, 0.1 ) ) // scene -> child 2
+            scene.add ( new THREE.AmbientLight( c_white, 0.2 ) )
             // Sun
             var pivotSun = new THREE.Object3D()
-			scene.add(pivotSun) // scene -> child 3
+			scene.add(pivotSun)
 			pivotSun.add( new THREE.DirectionalLight( c_sun, 1.0 ) ) // LIGHT
 			pivotSun.add( new THREE.Mesh( new THREE.SphereGeometry( 1.5, 32, 32 ), c_sun ) ) // SPHERE
             pivotSun.children[0].castShadow = true
@@ -417,7 +430,7 @@
             pivotSun.children[0].shadow.camera.bottom = -8
             // Moon
             var pivotMoon = new THREE.Object3D()
-			scene.add(pivotMoon) // scene -> child 4
+			scene.add(pivotMoon)
 			pivotMoon.add( new THREE.DirectionalLight( c_moon, 0.5 ) ) // LIGHT
 			pivotMoon.add( new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 32 ), c_moon ) ) // SPHERE 
             pivotMoon.children[0].castShadow = true
@@ -454,6 +467,9 @@
                     dir = RIGHT
                     prevDir = RIGHTdirBuffer = []
                     turnList = [0,0,0]
+                    // reset score sign
+                    txt_level.innerHTML = 'Score 0'
+                    txt_level.style.color = '#ffff'
                     // remove old body
                     if (STATE == 2) pivotSnake.remove( pivotList[0] )
                     // reset snake position
@@ -475,8 +491,9 @@
                     TAIL.position.set(0,-segLen/2,-segLen/2)
                     tail_RCM.add( TAIL )
                     // reset camera
-                    view = 0
-                    refreshCamera(view)
+                    //view = 0
+                    console.log(pivotSnake.position)
+                    refreshCamera(pivotSnake.position)
                 } else if (nextS == 1) { // game - init snake
                     div_info.style.visibility = 'visible'
                     div_start.style.visibility = 'hidden'
@@ -516,11 +533,6 @@
                             dirBuffer.push(newDir)
                     }
                     
-                    if ( keyCode == 86 ) { // v - change view
-                        view = (view+1)%3 
-                        refreshCamera( pivotSnake.position )
-                    }
-                    
                     // TEST: move and levelUP
                     /*if ( keyCode>=37 && keyCode<=40 ) {
                         dir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
@@ -533,6 +545,11 @@
                     }//*/
                 } else if (STATE == 2) { // game over
                     if (keyCode == 13) change_state(0) // enter - to main menu
+                }
+                
+                if ( keyCode == 86 ) { // v - change view
+                    view = (view+1)%3 
+                    refreshCamera( pivotSnake.position )
                 }
                 
                 if (keyCode == 77) { // m - music ON/OFF
