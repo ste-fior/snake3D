@@ -21,5 +21,9 @@ In POV the snake can turn left or right, so only the lateral directional arrows 
 
 - FIX minor bugs with in the shadows
 - FIX snake's skin motion
-- ADD a main menù
+- ADD a main menÃ¹
 - ADD a game over screen
+
+---
+
+The code works on Firefox and Edge browser.
