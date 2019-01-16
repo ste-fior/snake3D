@@ -691,22 +691,22 @@
                     if ( view==2 ) refreshCamera( pivotSnake.position )
                     
                     /* timer
-                     * 0        ----------
+                     *      0     ----------
                      *                                          
                      *          turn in current line         -- ╔═► -
                      *                                          ║
-                     * t_step/2 ----------
+                     *  t_step/2  ----------
                      *          wait to turn in current line -- ┌► --
-                     * t_step/4 ----------                      ║
+                     * 3*t_step/4 ----------                    ║
                      *          turn in previous line        -- ┬ ---
-                     * t_step   ----------                      ╠═►
+                     *  t_step    ----------                    ╠═►
                     **/
                     inGame = true
-                    if (timer > t_step/2 && dirBuffer.length) {
+                    if (timer > 3*t_step/4 && dirBuffer.length) {
                         dir = dirBuffer.shift()
                         inGame = move()
                     }
-                    if (timer > t_step/4 && dirBuffer.length) {
+                    if (timer < t_step/2 && dirBuffer.length) {
                         inGame = move()
                         dir = dirBuffer.shift()
                         if (inGame) inGame = move()
