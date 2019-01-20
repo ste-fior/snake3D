@@ -108,7 +108,7 @@
             var c_green_grass = new THREE.MeshPhongMaterial({color:0x507500})
             var c_green_grass_texture = new THREE.MeshPhongMaterial( {color: 0xefefef, map: THREE.ImageUtils.loadTexture( 'res/grass.jpg')} )
             var c_black = new THREE.MeshPhongMaterial({color:0x000000})
-            var c_white = new THREE.MeshPhongMaterial({color:0xefefef})
+            var c_white = new THREE.MeshPhongMaterial({color:0xefefef, map: THREE.ImageUtils.loadTexture( "res/eye_texture.jpg" )})
             var c_green_skin = new THREE.MeshPhongMaterial({color:0x00f000, map: THREE.ImageUtils.loadTexture( "res/seamless_skin2.jpg" )})
             var c_red_dark = new THREE.MeshPhongMaterial({color:0xa00000})
             var c_pink = new THREE.MeshPhongMaterial({color:0xc05050})
@@ -297,11 +297,13 @@
             var geometry = new THREE.SphereGeometry (segRad/4, 16, 16)
             var eyeR = new THREE.Mesh( geometry, c_white )
             eyeR.position.set(-segRad/2,0,segRad/2)
+			eyeR.rotation.z = PI/2
             eyeR.castShadow = true
             eyeR.receiveShadow = true
             head.add(eyeR)
             var eyeL = new THREE.Mesh( geometry, c_white )
             eyeL.position.set(-segRad/2,0,-segRad/2)
+			eyeL.rotation.z = PI/2
             eyeL.castShadow = true
             eyeL.receiveShadow = true
             head.add(eyeL)
@@ -443,19 +445,25 @@
             pivotMoon.children[0].shadow.camera.bottom = -8;
             
             /** SOUND **/
+            /*
             var listener = new THREE.AudioListener()
             camera.add( listener );
-            var sound = new THREE.Audio( listener ) //global audio source            
+            var sound = new THREE.Audio( listener ) //global audio source 
+            sound.setVolume( 0.5 )
+            */
             
             var sound_base = new Audio('res/curious.ogg')
             sound_base.loop = true
             sound_base.play()
+            sound_base.volume = 0.3
             
             var sound_apple_bite = new Audio('res/apple_bite_2.ogg')
             sound_apple_bite.loop = false
+            sound_apple_bite.volume = 0.9
             
             var sound_death = new Audio('res/pacman_death.ogg')
             sound_death.loop = false
+            sound_death.volume = 0.3
             
             /** CHANGE STATE **/
             var change_state = function (nextS) {
