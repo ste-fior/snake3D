@@ -4,6 +4,7 @@
         <meta charset=utf-8>
         <title>SNAKE</title>
         <link href="https://fonts.googleapis.com/css?family=Bangers" rel="stylesheet">
+        <link rel="icon" href="res/apple_icon.png">
         <style>
             body { margin: 0 }
             canvas { 
@@ -50,12 +51,16 @@
         <div id='div_end' class='center'> 
             <font size=20>Game Over</font><br><br>
             Final score: <span id='txt_end'>0</span><br>
-            Press <bold>enter</bold> to reeturn to the main menu<br>
+            Press <bold>enter</bold> to return to the main menu<br>
         </div>
         
         <script>
             // border: 3px dashed #1c87c9; - dashed box for css div
-        
+            // debug variables
+            var debug = false
+            var pause = false
+            var camDelta = 0.5
+            
             // const
             var PI = Math.PI
             var RIGHT = 0
@@ -445,13 +450,6 @@
             pivotMoon.children[0].shadow.camera.bottom = -8;
             
             /** SOUND **/
-            /*
-            var listener = new THREE.AudioListener()
-            camera.add( listener );
-            var sound = new THREE.Audio( listener ) //global audio source 
-            sound.setVolume( 0.5 )
-            */
-            
             var sound_base = new Audio('res/curious.ogg')
             sound_base.loop = true
             sound_base.play()
@@ -522,7 +520,6 @@
             document.addEventListener("keydown", onDocumentKeyDown, true)
             function onDocumentKeyDown(event) {
                 var keyCode = event.which
-                //console.log(keyCode)
                 
                 if (STATE == 0) { // main menu
                     if ( keyCode == 13 ) change_state(1) // enter - start new game
@@ -540,17 +537,6 @@
                         if ( Math.abs(newDir-lastDir)%2 && dirBuffer.length<4 )
                             dirBuffer.push(newDir)
                     }
-                    
-                    // TEST: move and levelUP
-                    /*if ( keyCode>=37 && keyCode<=40 ) {
-                        dir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
-                        move()
-                    }//*/
-                    /*if ( keyCode == 13 ) {
-                        /*turnList.push(0)
-                        bodyPos.push(bodyPos[lev])
-                        levelUP()
-                    }//*/
                 } else if (STATE == 2) { // game over
                     if (keyCode == 13) change_state(0) // enter - to main menu
                 }
@@ -564,6 +550,39 @@
                     if (mode_music) sound_base.pause()
                     else sound_base.play()
                     mode_music = !mode_music
+                }
+                
+                // DEBUG SECTION
+                if (debug) {
+                    console.log(keyCode)
+                    // move the snake
+                    if ( pause && keyCode>=37 && keyCode<=40 ) {
+                        dir = keyCode==39 ? RIGHT: (keyCode==40 ? DOWN : (keyCode==37 ? LEFT : UP))
+                        move()
+                    }
+                    // move the camera
+                    if (keyCode == 65) camera.position.x += camDelta // a
+                    if (keyCode == 83) camera.position.y += camDelta // s
+                    if (keyCode == 68) camera.position.z += camDelta // d
+                    if (keyCode == 87) camDelta = -camDelta // w
+                    if (keyCode==65||keyCode==83||keyCode==68) { 
+                        camera.lookAt( 0, 0, 0 )
+                        console.log('Camera:'+camera.position)
+                    }
+                    if ( keyCode == 76 ) { // l - level UP
+                        turnList.push(0)
+                        bodyPos.push(bodyPos[lev])
+                        levelUP()
+                    }
+                    if ( keyCode == 90 ) { // z - set timer = 7
+                        timer = 7
+                        moveBody()
+                    }
+                    if ( keyCode == 80 ) pause = !pause // p - pause
+                    if ( keyCode == 84 ) { // t - time
+                        t += 1
+                        timer -= 1
+                    }
                 }
             }
             
@@ -757,10 +776,22 @@
                 
                 //renderer.render( backgroundScene, backgroundCamera )
                 renderer.render( scene, camera )
-                timer -= 1
-                t += 1
+                if (!pause) {
+                    timer -= 1
+                    t += 1
+                }
             }
             
+            
+            if (debug) {
+                console.log('DEBUG MODE ACTIVATE')
+                console.log('ASD - change camera position')
+                console.log('W - change direction of the camera movement')
+                console.log('L - level UP')
+                console.log('P - pause')
+                console.log('←↑↓→ - move the snake (during the pause)')
+                console.log('T - next step (t++)')
+            }
             game()
         </script>
     </body>
