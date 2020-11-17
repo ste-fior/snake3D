@@ -10,6 +10,6 @@ In the end we added a set of music and effects in order to improve the entertain
 
 
 
-The game can be played at: https://fiored.github.io/snake3D/snake.html
+The game can be played at: https://Fiorav.github.io/snake3D/snake.html
 
 The code works properly on Firefox and Edge browsers.
